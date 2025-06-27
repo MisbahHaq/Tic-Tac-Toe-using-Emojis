@@ -78,13 +78,10 @@ nav span {
     border-radius: 8px;
 }
 
-/* Second Page Styling */
-
 .second-page {
     color: white;
     display: flex;
     align-items: center;
-    /* Align left and right vertically */
     justify-content: space-between;
     padding: 100px 40px;
     gap: 50px;
@@ -121,8 +118,6 @@ nav span {
     gap: 20px;
 }
 
-/* Button Styling */
-
 button.learn {
     border: 1px solid white;
     border-radius: 25px;
@@ -138,8 +133,6 @@ button.learn:hover {
     background-color: whitesmoke;
     color: black;
 }
-
-/* Removed ::after – it had no effect */
 
 @media (max-width: 768px) {
     .top-row {
