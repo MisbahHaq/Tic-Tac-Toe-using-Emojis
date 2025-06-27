@@ -20,8 +20,14 @@ body {
     margin-top: 35px;
     background-color: whitesmoke;
     display: flex;
-    justify-content: center;
     align-items: center;
+    justify-content: space-evenly;
+}
+
+.three-in-one {
+    display: flex;
+    justify-content: space-evenly;
+
 }
 
 nav {
@@ -33,6 +39,18 @@ nav {
     gap: 30px;
 }
 
-nav p {
+nav span {
     font-size: 20px;
+}
+
+.book-call {
+    align-items: end;
+    justify-content: end;
+    display: flex;
+}
+
+.logo img {
+    width: 40px;
+    height: 40px;
+    object-fit: cover;
 }
