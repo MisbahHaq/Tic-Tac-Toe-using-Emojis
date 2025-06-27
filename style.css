@@ -140,3 +140,54 @@ button.learn:hover {
 }
 
 /* Removed ::after – it had no effect */
+
+@media (max-width: 768px) {
+    .top-row {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+        padding: 15px;
+    }
+
+    nav {
+        flex-wrap: wrap;
+        gap: 15px;
+    }
+
+    .text-left {
+        position: static;
+        width: 100%;
+        font-size: 24px;
+        padding: 20px;
+        text-align: center;
+    }
+
+    .second-page {
+        flex-direction: column;
+        padding: 60px 20px;
+    }
+
+    .left,
+    .right {
+        width: 100%;
+        font-size: 24px;
+    }
+
+    .right-content {
+        font-size: 20px;
+    }
+
+    .logo img {
+        margin-left: 0;
+    }
+
+    .book-call {
+        margin-right: 0;
+        align-self: flex-end;
+    }
+
+    button.learn {
+        width: 100%;
+        text-align: center;
+    }
+}
