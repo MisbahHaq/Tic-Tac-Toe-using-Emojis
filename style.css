@@ -1,0 +1,17 @@
+* {
+    box-sizing: border-box;
+    padding: 0;
+    margin: 0;
+    font-family: Gilroy;
+}
+
+@font-face {
+    font-family: 'Gilroy';
+    src: url('./Gilroy-Light.otf');
+    font-style: normal;
+    font-weight: normal;
+}
+
+body {
+    background-color: black;
+}
