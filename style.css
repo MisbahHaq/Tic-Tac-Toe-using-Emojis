@@ -82,6 +82,7 @@ nav span {
 
 .second-page {
     color: white;
+    margin-top: 90px;
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -89,6 +90,15 @@ nav span {
 
 .right {
     width: 45%;
-    background-color: red;
-    font-size: 24px;
+    margin-right: 40px;
+    font-size: 35px;
+}
+
+button.learn {
+    border-radius: 18px;
+    margin-top: 20px;
+    margin-bottom: 20px;
+    background-color: black;
+    color: white;
+    padding: 10px;
 }
