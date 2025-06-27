@@ -82,21 +82,31 @@ nav span {
 
 .second-page {
     color: white;
-    margin-top: 90px;
+
     display: flex;
     align-items: center;
     justify-content: space-between;
 }
 
 .right {
+    margin-top: 90px;
     width: 45%;
     margin-right: 40px;
     font-size: 35px;
+    background-color: red;
+}
+
+.left {
+    margin-bottom: 95px;
+    background-color: red;
+}
+
+.left-text p {
+    font-size: 40px;
 }
 
 button.learn {
     border-radius: 18px;
-    margin-top: 20px;
     margin-bottom: 20px;
     background-color: black;
     color: white;
