@@ -76,8 +76,19 @@ nav span {
     color: whitesmoke;
     font-size: 45px;
     font-weight: normal;
-    background: rgba(255, 255, 255, 0.7);
-    filter: brightness(0.2);
     padding: 10px 20px;
     border-radius: 8px;
+}
+
+.second-page {
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.right {
+    width: 45%;
+    background-color: red;
+    font-size: 24px;
 }
