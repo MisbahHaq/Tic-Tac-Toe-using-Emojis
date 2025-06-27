@@ -22,7 +22,7 @@ body {
 }
 
 .background-image {
-    background-image: url("https://www.thespruce.com/thmb/byqfDhTa2svmw1e631EKtUjmFdk=/4000x0/filters:no_upscale():max_bytes(150000):strip_icc()/SPR-modern-cabin-interior-ideas-5220141-8faa2b321968462487d42aff1689ebaf.jpg");
+    background-image: url("https://cdn.prod.website-files.com/641c4c09dee497a5b5bdf1f9/641c4c0adee4976f95bdf497_CabinOne_Au%C3%9Fen.jpg");
     background-size: cover;
     background-position: center;
     height: 100%;
@@ -78,12 +78,13 @@ nav span {
     border-radius: 8px;
 }
 
-/* --- Updated Section --- */
+/* Second Page Styling */
 
 .second-page {
     color: white;
     display: flex;
-    align-items: flex-start;
+    align-items: center;
+    /* Align left and right vertically */
     justify-content: space-between;
     padding: 100px 40px;
     gap: 50px;
@@ -105,7 +106,6 @@ nav span {
 }
 
 .left-text {
-    margin-top: 105px;
     font-size: 20px;
 }
 
@@ -114,12 +114,29 @@ nav span {
     font-size: 35px;
 }
 
+.right-content {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 20px;
+}
+
+/* Button Styling */
+
 button.learn {
     border: 1px solid white;
     border-radius: 25px;
-    margin-top: 20px;
     background-color: black;
     color: white;
     padding: 10px 20px;
     font-size: 16px;
+    cursor: pointer;
+    transition: all 0.7s ease-in-out;
 }
+
+button.learn:hover {
+    background-color: whitesmoke;
+    color: black;
+}
+
+/* Removed ::after – it had no effect */
