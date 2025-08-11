@@ -10,12 +10,92 @@ class EmojiTicTacToe extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      home: const EmojiSelectionPage(),
+      home: const OnboardingPage(),
       debugShowCheckedModeBanner: false,
+      theme: ThemeData.dark().copyWith(
+        scaffoldBackgroundColor: Colors.black,
+        appBarTheme: const AppBarTheme(backgroundColor: Colors.black),
+      ),
     );
   }
 }
 
+// ---------------- Onboarding Page ----------------
+class OnboardingPage extends StatelessWidget {
+  const OnboardingPage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            // Stacked Tic Tac Toe text
+            Column(
+              children: const [
+                Padding(
+                  padding: EdgeInsets.only(bottom: 10),
+                  child: Text(
+                    "Tic",
+                    style: TextStyle(
+                      fontSize: 100,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+                Padding(
+                  padding: EdgeInsets.only(bottom: 10),
+                  child: Text(
+                    "Tac",
+                    style: TextStyle(
+                      fontSize: 100,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+                Padding(
+                  padding: EdgeInsets.only(bottom: 10),
+                  child: Text(
+                    "Toe",
+                    style: TextStyle(
+                      fontSize: 100,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 40),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const EmojiSelectionPage()),
+                );
+              },
+              style: ElevatedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 40,
+                  vertical: 15,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              child: const Text("Start Game", style: TextStyle(fontSize: 20)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ---------------- Emoji Selection Page ----------------
 class EmojiSelectionPage extends StatefulWidget {
   const EmojiSelectionPage({super.key});
 
@@ -50,7 +130,7 @@ class _EmojiSelectionPageState extends State<EmojiSelectionPage> {
         context,
         MaterialPageRoute(
           builder:
-              (context) => TicTacToePage(
+              (_) => TicTacToePage(
                 player1Emoji: player1Emoji!,
                 player2Emoji: player2Emoji!,
               ),
@@ -77,13 +157,15 @@ class _EmojiSelectionPageState extends State<EmojiSelectionPage> {
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
                   color:
-                      selectedEmoji == emoji ? Colors.blue[100] : Colors.white,
+                      selectedEmoji == emoji
+                          ? Colors.blue[100]
+                          : Colors.grey[900],
                   borderRadius: BorderRadius.circular(10),
                   border: Border.all(
                     color:
                         selectedEmoji == emoji
                             ? Colors.blue
-                            : Colors.grey.shade300,
+                            : Colors.grey.shade700,
                     width: 2,
                   ),
                 ),
@@ -97,7 +179,6 @@ class _EmojiSelectionPageState extends State<EmojiSelectionPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[50],
       appBar: AppBar(title: const Text("Select Emojis"), centerTitle: true),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -143,6 +224,7 @@ class _EmojiSelectionPageState extends State<EmojiSelectionPage> {
   }
 }
 
+// ---------------- Tic Tac Toe Game Page ----------------
 class TicTacToePage extends StatefulWidget {
   final String player1Emoji;
   final String player2Emoji;
@@ -214,7 +296,6 @@ class _TicTacToePageState extends State<TicTacToePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[50],
       appBar: AppBar(title: const Text("Emoji Tic-Tac-Toe"), centerTitle: true),
       body: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -243,11 +324,11 @@ class _TicTacToePageState extends State<TicTacToePage> {
                 child: Container(
                   margin: const EdgeInsets.all(6),
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: Colors.grey[900],
                     borderRadius: BorderRadius.circular(14),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black12,
+                        color: Colors.black54,
                         blurRadius: 6,
                         offset: const Offset(2, 2),
                       ),
