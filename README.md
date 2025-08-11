@@ -1,16 +1,26 @@
-# game
+# Flutter Emoji Tic Tac Toe 
 
-A new Flutter project.
+A fun and modern **Tic Tac Toe** game built with **Flutter**, using emojis instead of the traditional X and O.  
+Includes a stylish onboarding page with vertically-stacked "Tic Tac Toe" text and emoji selection.
 
-## Getting Started
+## 📸 Screenshots  
+*(Add screenshots of your app here)*  
 
-This project is a starting point for a Flutter application.
+---
 
-A few resources to get you started if this is your first Flutter project:
+## 🚀 Features
+- 🎨 Emoji-based Tic Tac Toe gameplay
+- 📱 Responsive design for all devices
+- 🖌 Modern and minimal UI
+- 🏁 Easy navigation with onboarding screen
+- ✨ Customizable emoji selections
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+---
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+## 🎯 How to Play
+1. Choose your emoji in the emoji selection screen.
+2. Play against a friend in a classic 3x3 grid.
+3. First to align 3 emojis in a row, column, or diagonal wins!
+
+---
+
