@@ -20,7 +20,6 @@ class EmojiTicTacToe extends StatelessWidget {
   }
 }
 
-// ---------------- Onboarding Page ----------------
 class OnboardingPage extends StatefulWidget {
   const OnboardingPage({super.key});
 
@@ -96,7 +95,6 @@ class _OnboardingPageState extends State<OnboardingPage>
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                // Animated Title
                 SlideTransition(
                   position: _titleSlideAnimation,
                   child: ScaleTransition(
@@ -130,7 +128,6 @@ class _OnboardingPageState extends State<OnboardingPage>
                   ),
                 ),
                 const SizedBox(height: 60),
-                // Animated Button
                 ScaleTransition(
                   scale: _buttonAnimation,
                   child: Container(
@@ -238,7 +235,6 @@ class _OnboardingPageState extends State<OnboardingPage>
   }
 }
 
-// ---------------- Emoji Selection Page ----------------
 class EmojiSelectionPage extends StatefulWidget {
   const EmojiSelectionPage({super.key});
 
@@ -262,7 +258,6 @@ class _EmojiSelectionPageState extends State<EmojiSelectionPage>
     '🐻',
     '🐨',
     '🐯',
-    '🐷',
     '🐸',
     '🦁',
     '🐮',
@@ -272,6 +267,21 @@ class _EmojiSelectionPageState extends State<EmojiSelectionPage>
     '🦋',
     '🐝',
     '🐳',
+    '🖐',
+    '🤝',
+    '👏',
+    '🙌',
+    '🦴',
+    '🐍',
+    '🦍',
+    '🍆',
+    '🍑',
+    '🔞',
+    '🤡',
+    '👽',
+    '💋',
+    '👅',
+    '🍭',
   ];
 
   @override
@@ -470,7 +480,6 @@ class _EmojiSelectionPageState extends State<EmojiSelectionPage>
             opacity: _fadeAnimation,
             child: Column(
               children: [
-                // Header
                 Padding(
                   padding: const EdgeInsets.all(20),
                   child: Row(
@@ -499,11 +508,10 @@ class _EmojiSelectionPageState extends State<EmojiSelectionPage>
                           ),
                         ),
                       ),
-                      const SizedBox(width: 48), // Balance the back button
+                      const SizedBox(width: 48),
                     ],
                   ),
                 ),
-                // Content
                 Expanded(
                   child: SingleChildScrollView(
                     padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -525,7 +533,6 @@ class _EmojiSelectionPageState extends State<EmojiSelectionPage>
                           colors: const [Color(0xFF4ecdc4), Color(0xFF44a08d)],
                         ),
                         const SizedBox(height: 30),
-                        // Start Game Button
                         AnimatedContainer(
                           duration: const Duration(milliseconds: 300),
                           decoration: BoxDecoration(
@@ -591,7 +598,6 @@ class _EmojiSelectionPageState extends State<EmojiSelectionPage>
   }
 }
 
-// ---------------- Tic Tac Toe Game Page ----------------
 class TicTacToePage extends StatefulWidget {
   final String player1Emoji;
   final String player2Emoji;
@@ -681,9 +687,14 @@ class _TicTacToePageState extends State<TicTacToePage>
 
   bool _checkWinner(String player) {
     List<List<int>> winPatterns = [
-      [0, 1, 2], [3, 4, 5], [6, 7, 8], // Rows
-      [0, 3, 6], [1, 4, 7], [2, 5, 8], // Columns
-      [0, 4, 8], [2, 4, 6], // Diagonals
+      [0, 1, 2],
+      [3, 4, 5],
+      [6, 7, 8],
+      [0, 3, 6],
+      [1, 4, 7],
+      [2, 5, 8],
+      [0, 4, 8],
+      [2, 4, 6],
     ];
     return winPatterns.any(
       (pattern) => pattern.every((index) => board[index] == player),
@@ -758,7 +769,6 @@ class _TicTacToePageState extends State<TicTacToePage>
         child: SafeArea(
           child: Column(
             children: [
-              // Header
               Padding(
                 padding: const EdgeInsets.all(20),
                 child: Row(
@@ -795,7 +805,6 @@ class _TicTacToePageState extends State<TicTacToePage>
                   ],
                 ),
               ),
-              // Scores
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 child: Row(
@@ -816,7 +825,6 @@ class _TicTacToePageState extends State<TicTacToePage>
                 ),
               ),
               const SizedBox(height: 20),
-              // Current Player or Winner
               if (winner == '' && !isDraw)
                 Container(
                   margin: const EdgeInsets.symmetric(horizontal: 20),
@@ -877,7 +885,6 @@ class _TicTacToePageState extends State<TicTacToePage>
                   ),
                 ),
               const SizedBox(height: 20),
-              // Game Board
               Expanded(
                 child: Padding(
                   padding: const EdgeInsets.all(20),
@@ -907,7 +914,6 @@ class _TicTacToePageState extends State<TicTacToePage>
                   ),
                 ),
               ),
-              // Reset Button
               Padding(
                 padding: const EdgeInsets.all(20),
                 child: Container(
