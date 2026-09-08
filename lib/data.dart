@@ -339,12 +339,12 @@ class GameStore extends ChangeNotifier {
 
   bool get canClaimDaily => _bonusDate != _todayKey;
 
-  int? claimDaily() {
+  Future<int?> claimDaily() async {
     if (!canClaimDaily) return null;
     _bonusDate = _todayKey;
     _diamonds += kDailyBonus;
-    _save();
     notifyListeners();
+    await _save();
     return kDailyBonus;
   }
 
@@ -375,13 +375,13 @@ class GameStore extends ChangeNotifier {
         ),
       ];
 
-  int claimQuest(String id) {
+  Future<int> claimQuest(String id) async {
     for (final q in quests) {
       if (q.id == id && q.done && !q.claimed) {
         _claimedToday.add(id);
         _diamonds += q.reward;
-        _save();
         notifyListeners();
+        await _save();
         return q.reward;
       }
     }

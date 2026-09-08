@@ -8,13 +8,11 @@ class HeaderRow extends StatelessWidget {
   final GameStore store;
   final VoidCallback onStore;
   final VoidCallback onLeaderboard;
-  final VoidCallback onFeed;
   const HeaderRow({
     super.key,
     required this.store,
     required this.onStore,
     required this.onLeaderboard,
-    required this.onFeed,
   });
 
   @override
@@ -37,8 +35,6 @@ class HeaderRow extends StatelessWidget {
         ),
         const SizedBox(width: 8),
         DiamondBadge(diamonds: store.diamonds),
-        const SizedBox(width: 8),
-        BrutalIconButton(icon: Icons.history, onPressed: onFeed),
         const SizedBox(width: 8),
         BrutalIconButton(icon: Icons.store_outlined, onPressed: onStore),
         const SizedBox(width: 8),

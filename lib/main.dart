@@ -66,8 +66,6 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  GameMode _mode = GameMode.twoPlayer;
-
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
@@ -80,11 +78,7 @@ class _HomePageState extends State<HomePage> {
                 padding: const EdgeInsets.all(20),
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: 520),
-                  child: _HomeContent(
-                    store: widget.store,
-                    mode: _mode,
-                    onModeChanged: (m) => setState(() => _mode = m),
-                  ),
+                  child: _HomeContent(store: widget.store),
                 ),
               ),
             ),
@@ -97,13 +91,7 @@ class _HomePageState extends State<HomePage> {
 
 class _HomeContent extends StatelessWidget {
   final GameStore store;
-  final GameMode mode;
-  final ValueChanged<GameMode> onModeChanged;
-  const _HomeContent({
-    required this.store,
-    required this.mode,
-    required this.onModeChanged,
-  });
+  const _HomeContent({required this.store});
 
   @override
   Widget build(BuildContext context) {
@@ -115,25 +103,8 @@ class _HomeContent extends StatelessWidget {
           onStore: () => pushBrutal(context, StorePage(store: store)),
           onLeaderboard: () =>
               pushBrutal(context, LeaderboardPage(store: store)),
-          onFeed: () => pushBrutal(context, MatchFeedPage(store: store)),
         ),
         const SizedBox(height: 32),
-        FittedBox(
-          fit: BoxFit.scaleDown,
-          child: const Text(
-            'EMOJI\nTIC·TAC·TOE',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontFamily: 'monospace',
-              fontSize: 64,
-              height: 0.95,
-              fontWeight: FontWeight.w900,
-              letterSpacing: 3,
-              color: kBlack,
-            ),
-          ),
-        ),
-        const SizedBox(height: 8),
         FittedBox(
           fit: BoxFit.scaleDown,
           child: const Text(
@@ -162,7 +133,7 @@ class _HomeContent extends StatelessWidget {
         const SectionDivider(),
         const SizedBox(height: 16),
         const Text(
-          'choose mode',
+          'play',
           style: TextStyle(
             fontFamily: 'monospace',
             fontSize: 12,
@@ -171,30 +142,18 @@ class _HomeContent extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 10),
-        for (final m in GameMode.values) ...[
-          _ModeCard(
-            label: m.label,
-            active: mode == m,
-            onTap: () => onModeChanged(m),
-          ),
-          const SizedBox(height: 10),
-        ],
-        const SizedBox(height: 8),
-        BrutalButton(
-          label: 'PLAY ▶',
-          bg: kCanary,
-          onPressed: () =>
-              pushBrutal(context, EmojiSelectionPage(store: store, mode: mode)),
+        _ModeCard(
+          label: '🎮 CUSTOM GAME',
+          active: false,
+          onTap: () => pushBrutal(context, CustomGamePage(store: store)),
         ),
         const SizedBox(height: 10),
-        BrutalButton(
-          label: store.user != null ? '⚔ PLAY ONLINE · PVP' : '⚔ ONLINE PVP — SIGN IN TO PLAY',
-          bg: store.user != null ? kMint : const Color(0xFFE5E5E5),
-          enabled: store.user != null,
-          onPressed: store.user != null
-              ? () => pushBrutal(context, OnlineLobbyPage(store: store))
-              : null,
-        ),
+        if (store.user != null)
+          _ModeCard(
+            label: '⚔ ONLINE PVP',
+            active: false,
+            onTap: () => pushBrutal(context, OnlineLobbyPage(store: store)),
+          ),
         const SizedBox(height: 16),
         _DailyQuestsCard(store: store),
         const SizedBox(height: 16),
@@ -259,9 +218,9 @@ class _DailyQuestsCard extends StatelessWidget {
                     padding: const EdgeInsets.symmetric(
                         horizontal: 12, vertical: 8),
                     onPressed: store.canClaimDaily
-                        ? () {
-                            final got = store.claimDaily();
-                            if (got != null) {
+                        ? () async {
+                            final got = await store.claimDaily();
+                            if (got != null && context.mounted) {
                               _toast(context, '+$got💎 DAILY BONUS!', kMint);
                             }
                           }
@@ -352,9 +311,9 @@ class _QuestRow extends StatelessWidget {
             fontSize: 11,
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             onPressed: quest.done
-                ? () {
-                    final got = store.claimQuest(quest.id);
-                    if (got > 0) {
+                ? () async {
+                    final got = await store.claimQuest(quest.id);
+                    if (got > 0 && context.mounted) {
                       onToast(context, 'QUEST COMPLETE +$got💎', kMint);
                     }
                   }
@@ -463,12 +422,11 @@ class _SignInChip extends StatelessWidget {
 }
 
 // ────────────────────────────────────────────────────────────────────────────
-//  Emoji selection
+//  Custom game: mode + blitz + ranked setup
 // ────────────────────────────────────────────────────────────────────────────
-class EmojiSelectionPage extends StatelessWidget {
+class CustomGamePage extends StatelessWidget {
   final GameStore store;
-  final GameMode mode;
-  const EmojiSelectionPage({super.key, required this.store, required this.mode});
+  const CustomGamePage({super.key, required this.store});
 
   @override
   Widget build(BuildContext context) {
@@ -479,7 +437,195 @@ class EmojiSelectionPage extends StatelessWidget {
             padding: const EdgeInsets.all(20),
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 600),
-              child: _EmojiSelectionBody(store: store, mode: mode),
+              child: _CustomGameBody(store: store),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _CustomGameBody extends StatefulWidget {
+  final GameStore store;
+  const _CustomGameBody({required this.store});
+
+  @override
+  State<_CustomGameBody> createState() => _CustomGameBodyState();
+}
+
+class _CustomGameBodyState extends State<_CustomGameBody> {
+  GameMode _mode = GameMode.twoPlayer;
+  int _blitz = 0;
+  bool _ranked = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: widget.store,
+      builder: (context, _) {
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                BrutalIconButton(
+                  icon: Icons.arrow_back,
+                  onPressed: () => Navigator.pop(context),
+                ),
+                const SizedBox(width: 12),
+                const Expanded(
+                  child: Text(
+                    'CUSTOM GAME',
+                    style: TextStyle(
+                      fontFamily: 'monospace',
+                      fontSize: 20,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 2,
+                    ),
+                  ),
+                ),
+                DiamondBadge(diamonds: widget.store.diamonds),
+              ],
+            ),
+            const SizedBox(height: 16),
+            ScoreBar(store: widget.store),
+            const SizedBox(height: 16),
+            const SectionDivider(),
+            const SizedBox(height: 16),
+            const Text(
+              'choose mode',
+              style: TextStyle(
+                fontFamily: 'monospace',
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 2,
+              ),
+            ),
+            const SizedBox(height: 10),
+            for (final m in GameMode.values) ...[
+              _ModeCard(
+                label: m.label,
+                active: _mode == m,
+                onTap: () => setState(() => _mode = m),
+              ),
+              const SizedBox(height: 10),
+            ],
+            const SizedBox(height: 8),
+            BrutalCard(
+              bg: kSky,
+              shadow: kShadowSm,
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const Text(
+                    '⏱ BLITZ CLOCK',
+                    style: TextStyle(
+                      fontFamily: 'monospace',
+                      fontSize: 11,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 2,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      for (final s in const [0, 15, 30, 60])
+                        _OptionChip(
+                          active: _blitz == s,
+                          label: s == 0 ? 'OFF' : '${s}s',
+                          onTap: () => setState(() => _blitz = s),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      const Expanded(
+                        child: Text(
+                          '⚔ RANKED',
+                          style: TextStyle(
+                            fontFamily: 'monospace',
+                            fontSize: 12,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 1.5,
+                          ),
+                        ),
+                      ),
+                      const Text(
+                        'x2💎 REWARD',
+                        style: TextStyle(
+                          fontFamily: 'monospace',
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      _OptionChip(
+                        active: _ranked,
+                        label: _ranked ? 'ON' : 'OFF',
+                        onTap: () => setState(() => _ranked = !_ranked),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 18),
+            BrutalButton(
+              label: 'NEXT → PICK FIGHTERS',
+              bg: kCanary,
+              onPressed: () => pushBrutal(
+                context,
+                EmojiSelectionPage(
+                  store: widget.store,
+                  mode: _mode,
+                  blitzSeconds: _blitz,
+                  ranked: _ranked,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+//  Emoji selection
+// ────────────────────────────────────────────────────────────────────────────
+class EmojiSelectionPage extends StatelessWidget {
+  final GameStore store;
+  final GameMode mode;
+  final int blitzSeconds;
+  final bool ranked;
+  const EmojiSelectionPage({
+    super.key,
+    required this.store,
+    required this.mode,
+    this.blitzSeconds = 0,
+    this.ranked = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(20),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 600),
+              child: _EmojiSelectionBody(
+                store: store,
+                mode: mode,
+                blitzSeconds: blitzSeconds,
+                ranked: ranked,
+              ),
             ),
           ),
         ),
@@ -491,7 +637,14 @@ class EmojiSelectionPage extends StatelessWidget {
 class _EmojiSelectionBody extends StatefulWidget {
   final GameStore store;
   final GameMode mode;
-  const _EmojiSelectionBody({required this.store, required this.mode});
+  final int blitzSeconds;
+  final bool ranked;
+  const _EmojiSelectionBody({
+    required this.store,
+    required this.mode,
+    required this.blitzSeconds,
+    required this.ranked,
+  });
 
   @override
   State<_EmojiSelectionBody> createState() => _EmojiSelectionBodyState();
@@ -500,8 +653,6 @@ class _EmojiSelectionBody extends StatefulWidget {
 class _EmojiSelectionBodyState extends State<_EmojiSelectionBody> {
   late String _p1 = '🐶';
   late String _p2 = '🐼';
-  int _blitz = 0;
-  bool _ranked = false;
 
   @override
   Widget build(BuildContext context) {
@@ -579,69 +730,6 @@ class _EmojiSelectionBodyState extends State<_EmojiSelectionBody> {
               ),
             ],
             const SizedBox(height: 18),
-            BrutalCard(
-              bg: kSky,
-              shadow: kShadowSm,
-              padding: const EdgeInsets.all(12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  const Text(
-                    '⏱ BLITZ CLOCK',
-                    style: TextStyle(
-                      fontFamily: 'monospace',
-                      fontSize: 11,
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: 2,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [
-                      for (final s in const [0, 15, 30, 60])
-                        _OptionChip(
-                          active: _blitz == s,
-                          label: s == 0 ? 'OFF' : '${s}s',
-                          onTap: () => setState(() => _blitz = s),
-                        ),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  Row(
-                    children: [
-                      const Expanded(
-                        child: Text(
-                          '⚔ RANKED',
-                          style: TextStyle(
-                            fontFamily: 'monospace',
-                            fontSize: 12,
-                            fontWeight: FontWeight.w900,
-                            letterSpacing: 1.5,
-                          ),
-                        ),
-                      ),
-                      const Text(
-                        'x2💎 REWARD',
-                        style: TextStyle(
-                          fontFamily: 'monospace',
-                          fontSize: 10,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      _OptionChip(
-                        active: _ranked,
-                        label: _ranked ? 'ON' : 'OFF',
-                        onTap: () => setState(() => _ranked = !_ranked),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 18),
             BrutalButton(
               label: widget.mode.label,
               onPressed: () => pushBrutal(
@@ -651,8 +739,8 @@ class _EmojiSelectionBodyState extends State<_EmojiSelectionBody> {
                   mode: widget.mode,
                   p1Emoji: _p1,
                   p2Emoji: widget.mode.isAi ? kAiEmoji : _p2,
-                  blitzSeconds: _blitz,
-                  ranked: _ranked,
+                  blitzSeconds: widget.blitzSeconds,
+                  ranked: widget.ranked,
                 ),
               ),
             ),
@@ -1703,6 +1791,7 @@ class _LeaderboardPageState extends State<LeaderboardPage> {
   late Future<List<LeaderboardEntry>> _future;
   String? _lastUid;
   LeaderboardPeriod _period = LeaderboardPeriod.weekly;
+  Timer? _auto;
 
   @override
   void initState() {
@@ -1710,10 +1799,14 @@ class _LeaderboardPageState extends State<LeaderboardPage> {
     _lastUid = widget.store.user?.uid;
     widget.store.addListener(_onStoreChanged);
     _future = widget.store.services.fetchLeaderboard(period: _period);
+    _auto = Timer.periodic(const Duration(seconds: 5), (_) {
+      if (mounted) _refresh();
+    });
   }
 
   @override
   void dispose() {
+    _auto?.cancel();
     widget.store.removeListener(_onStoreChanged);
     super.dispose();
   }
@@ -1811,7 +1904,7 @@ class _LeaderboardPageState extends State<LeaderboardPage> {
                     BrutalCard(
                       bg: kSky,
                       child: const Text(
-                        'GLOBAL TOP WINS · UPDATED AFTER EACH MATCH',
+                        'GLOBAL TOP WINS · LIVE',
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           fontFamily: 'monospace',
@@ -3203,6 +3296,7 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
   String _status = 'open';
   String _winner = '';
   bool _reported = false;
+  bool _dialogShown = false;
   StreamSubscription? _sub;
 
   bool get _open => _status == 'open';
@@ -3245,6 +3339,12 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
         _settle();
       }
     });
+    if (_status == 'done' && !_dialogShown) {
+      _dialogShown = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _showEndDialog();
+      });
+    }
   }
 
   void _settle() {
@@ -3280,6 +3380,112 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
   void _leave() {
     widget.store.services.closeOnlineGame(widget.docId);
     Navigator.pop(context);
+  }
+
+  Future<void> _rematch() async {
+    final id = await widget.store.services.createOnlineGame(
+      hostEmoji: widget.myEmoji,
+      hostName: widget.store.displayName,
+    );
+    if (!mounted) return;
+    if (id == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'OFFLINE — CAN\'T HOST A NEW BATTLE',
+            style: TextStyle(fontFamily: 'monospace', fontWeight: FontWeight.w900),
+          ),
+        ),
+      );
+      return;
+    }
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(
+        builder: (_) => OnlineGamePage(
+          store: widget.store,
+          docId: id,
+          isHost: true,
+          myEmoji: widget.myEmoji,
+        ),
+      ),
+    );
+  }
+
+  void _showEndDialog() {
+    final iWon = _winner.isNotEmpty && _winner == widget.myEmoji;
+    final title = iWon
+        ? 'YOU WIN!'
+        : (_winner.isNotEmpty ? 'YOU LOSE' : 'DRAW');
+    final mark = _winner.isNotEmpty ? _winner : '🤝';
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      barrierColor: kBlack.withValues(alpha: 0.6),
+      builder: (context) => Dialog(
+        backgroundColor: Colors.transparent,
+        child: BrutalCard(
+          bg: iWon ? kMint : (_winner.isNotEmpty ? kCoral : kCanary),
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(mark, style: const TextStyle(fontSize: 56)),
+              const SizedBox(height: 8),
+              Text(
+                title,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontFamily: 'monospace',
+                  fontSize: 22,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 2,
+                ),
+              ),
+              if (iWon) ...[
+                const SizedBox(height: 6),
+                Text(
+                  '+${widget.store.winReward}💎',
+                  style: const TextStyle(
+                    fontFamily: 'monospace',
+                    fontSize: 18,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ],
+              const SizedBox(height: 16),
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    BrutalButton(
+                      label: 'REMATCH',
+                      onPressed: () {
+                        Navigator.pop(context);
+                        _rematch();
+                      },
+                    ),
+                    const SizedBox(width: 10),
+                    BrutalButton(
+                      label: 'LEAVE',
+                      bg: Colors.white,
+                      fontSize: 15,
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 20, vertical: 14),
+                      onPressed: () {
+                        Navigator.pop(context);
+                        _leave();
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   @override
@@ -3350,6 +3556,19 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
                               : (_winner.isNotEmpty ? 'YOU LOSE' : 'DRAW'),
                           textAlign: TextAlign.center,
                           style: const TextStyle(
+                            fontFamily: 'monospace',
+                            fontSize: 13,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      )
+                    else if (_status == 'closed')
+                      BrutalCard(
+                        bg: kCoral,
+                        child: const Text(
+                          '❌ MATCH CLOSED',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
                             fontFamily: 'monospace',
                             fontSize: 13,
                             fontWeight: FontWeight.w900,
