@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:game/main.dart';
+import 'package:toemoji/main.dart';
 
 void main() {
   testWidgets('home shows custom game and opens setup', (tester) async {
-    await tester.pumpWidget(const EmojiTicTacToe());
+    await tester.pumpWidget(const ToEmoji());
     await tester.pumpAndSettle();
 
-    expect(find.text('EMOJI\nTIC·TAC·TOE'), findsWidgets);
+    expect(find.text('toemoji'), findsOneWidget);
     expect(find.text('🎮 CUSTOM GAME'), findsOneWidget);
     expect(find.textContaining('ONLINE PVP'), findsNothing);
 
@@ -37,7 +37,7 @@ void main() {
   });
 
   testWidgets('emoji pick and game render without overflow', (tester) async {
-    await tester.pumpWidget(const EmojiTicTacToe());
+    await tester.pumpWidget(const ToEmoji());
     await tester.pumpAndSettle();
 
     await tester.tap(find.text('🎮 CUSTOM GAME'));
@@ -65,7 +65,7 @@ void main() {
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
 
-    await tester.pumpWidget(const EmojiTicTacToe());
+    await tester.pumpWidget(const ToEmoji());
     await tester.pumpAndSettle();
 
     await tester.tap(find.byIcon(Icons.store_outlined));
@@ -81,7 +81,7 @@ void main() {
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
 
-    await tester.pumpWidget(const EmojiTicTacToe());
+    await tester.pumpWidget(const ToEmoji());
     await tester.pumpAndSettle();
 
     await tester.ensureVisible(find.text('🎮 CUSTOM GAME'));
@@ -119,7 +119,7 @@ void main() {
   });
 
   testWidgets('home shows daily quests and custom game entry', (tester) async {
-    await tester.pumpWidget(const EmojiTicTacToe());
+    await tester.pumpWidget(const ToEmoji());
     await tester.pumpAndSettle();
 
     expect(find.text('DAILY QUESTS'), findsOneWidget);
@@ -144,7 +144,7 @@ void main() {
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
 
-    await tester.pumpWidget(const EmojiTicTacToe());
+    await tester.pumpWidget(const ToEmoji());
     await tester.pumpAndSettle();
 
     await tester.tap(find.byIcon(Icons.store_outlined));

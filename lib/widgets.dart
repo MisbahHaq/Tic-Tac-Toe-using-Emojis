@@ -22,7 +22,7 @@ class HeaderRow extends StatelessWidget {
       children: [
         Expanded(
           child: Text(
-            'EMOJI\nTIC·TAC·TOE',
+            'toemoji',
             style: const TextStyle(
               fontFamily: 'monospace',
               fontSize: 18,
@@ -38,7 +38,10 @@ class HeaderRow extends StatelessWidget {
         const SizedBox(width: 8),
         BrutalIconButton(icon: Icons.store_outlined, onPressed: onStore),
         const SizedBox(width: 8),
-        BrutalIconButton(icon: Icons.emoji_events_outlined, onPressed: onLeaderboard),
+        BrutalIconButton(
+          icon: Icons.emoji_events_outlined,
+          onPressed: onLeaderboard,
+        ),
         if (isOnline) ...[
           const SizedBox(width: 8),
           const Text('⚡', style: TextStyle(fontSize: 18)),
@@ -70,11 +73,15 @@ class EmojiTile extends StatelessWidget {
         duration: const Duration(milliseconds: 120),
         padding: const EdgeInsets.all(10),
         decoration: BoxDecoration(
-          color: selected ? kCanary : (unlocked ? Colors.white : const Color(0xFFE5E5E5)),
+          color:
+              selected
+                  ? kCanary
+                  : (unlocked ? Colors.white : const Color(0xFFE5E5E5)),
           border: Border.all(color: kBlack, width: selected ? 3 : 2),
-          boxShadow: selected
-              ? const [BoxShadow(color: kBlack, offset: Offset(3, 3))]
-              : kShadowNone,
+          boxShadow:
+              selected
+                  ? const [BoxShadow(color: kBlack, offset: Offset(3, 3))]
+                  : kShadowNone,
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -86,10 +93,7 @@ class EmojiTile extends StatelessWidget {
                 opacity: unlocked ? 1 : 0.35,
                 child: Text(
                   item.emoji,
-                  style: TextStyle(
-                    fontSize: 30,
-                    color: kBlack,
-                  ),
+                  style: TextStyle(fontSize: 30, color: kBlack),
                 ),
               ),
             ),

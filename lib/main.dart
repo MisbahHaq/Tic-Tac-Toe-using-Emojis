@@ -10,17 +10,17 @@ import 'widgets.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
-  runApp(const EmojiTicTacToe());
+  runApp(const ToEmoji());
 }
 
-class EmojiTicTacToe extends StatefulWidget {
-  const EmojiTicTacToe({super.key});
+class ToEmoji extends StatefulWidget {
+  const ToEmoji({super.key});
 
   @override
-  State<EmojiTicTacToe> createState() => _EmojiTicTacToeState();
+  State<ToEmoji> createState() => _ToEmojiState();
 }
 
-class _EmojiTicTacToeState extends State<EmojiTicTacToe> {
+class _ToEmojiState extends State<ToEmoji> {
   late final AppServices _services;
   late final GameStore _store;
 
@@ -41,8 +41,27 @@ class _EmojiTicTacToeState extends State<EmojiTicTacToe> {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Emoji Tic-Tac-Toe',
+      title: 'toemoji',
       debugShowCheckedModeBanner: false,
+      builder: (context, child) {
+        return LayoutBuilder(
+          builder: (context, c) {
+            if (c.maxWidth <= 640) return child ?? const SizedBox.shrink();
+            return Container(
+              color: kBg,
+              alignment: Alignment.topCenter,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 640),
+                child: SizedBox(
+                  width: 640,
+                  height: c.maxHeight,
+                  child: child ?? const SizedBox.shrink(),
+                ),
+              ),
+            );
+          },
+        );
+      },
       theme: ThemeData(
         useMaterial3: true,
         fontFamily: 'monospace',
@@ -101,16 +120,13 @@ class _HomeContent extends StatelessWidget {
         HeaderRow(
           store: store,
           onStore: () => pushBrutal(context, StorePage(store: store)),
-          onLeaderboard: () =>
-              pushBrutal(context, LeaderboardPage(store: store)),
+          onLeaderboard:
+              () => pushBrutal(context, LeaderboardPage(store: store)),
         ),
         const SizedBox(height: 32),
         FittedBox(
           fit: BoxFit.scaleDown,
-          child: const Text(
-            '🐶  VS  🐼',
-            style: TextStyle(fontSize: 44),
-          ),
+          child: const Text('🐶  VS  🐼', style: TextStyle(fontSize: 44)),
         ),
         const SizedBox(height: 28),
         BrutalCard(
@@ -198,77 +214,85 @@ class _DailyQuestsCard extends StatelessWidget {
             duration: const Duration(milliseconds: 250),
             alignment: Alignment.topCenter,
             curve: Curves.easeOut,
-            child: allDone
-                ? const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 4),
-                    child: Text(
-                      '🎁 DAILY & QUESTS ALL DONE · SEE YOU TOMORROW ✓',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontFamily: 'monospace',
-                        fontSize: 11,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                  )
-                : Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              store.canClaimDaily
-                                  ? '🎁 DAILY BONUS READY'
-                                  : '🎁 DAILY BONUS CLAIMED',
-                              style: const TextStyle(
-                                fontFamily: 'monospace',
-                                fontSize: 12,
-                                fontWeight: FontWeight.w900,
-                                letterSpacing: 1,
-                              ),
-                            ),
-                          ),
-                          BrutalButton(
-                            label: store.canClaimDaily
-                                ? 'CLAIM +$kDailyBonus💎'
-                                : '✓ DONE',
-                            bg: store.canClaimDaily ? kCanary : Colors.white,
-                            enabled: store.canClaimDaily,
-                            fontSize: 11,
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 12, vertical: 8),
-                            onPressed: store.canClaimDaily
-                                ? () async {
-                                    final got = await store.claimDaily();
-                                    if (got != null && context.mounted) {
-                                      _toast(context, '+$got💎 DAILY BONUS!',
-                                          kMint);
-                                    }
-                                  }
-                                : null,
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-                      const SectionDivider(),
-                      const SizedBox(height: 10),
-                      const Text(
-                        'DAILY QUESTS',
+            child:
+                allDone
+                    ? const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 4),
+                      child: Text(
+                        '🎁 DAILY & QUESTS ALL DONE · SEE YOU TOMORROW ✓',
+                        textAlign: TextAlign.center,
                         style: TextStyle(
                           fontFamily: 'monospace',
-                          fontSize: 10,
+                          fontSize: 11,
                           fontWeight: FontWeight.w900,
-                          letterSpacing: 2,
                         ),
                       ),
-                      const SizedBox(height: 8),
-                      for (final q in store.quests) ...[
-                        _QuestRow(store: store, quest: q, onToast: _toast),
+                    )
+                    : Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                store.canClaimDaily
+                                    ? '🎁 DAILY BONUS READY'
+                                    : '🎁 DAILY BONUS CLAIMED',
+                                style: const TextStyle(
+                                  fontFamily: 'monospace',
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w900,
+                                  letterSpacing: 1,
+                                ),
+                              ),
+                            ),
+                            BrutalButton(
+                              label:
+                                  store.canClaimDaily
+                                      ? 'CLAIM +$kDailyBonus💎'
+                                      : '✓ DONE',
+                              bg: store.canClaimDaily ? kCanary : Colors.white,
+                              enabled: store.canClaimDaily,
+                              fontSize: 11,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 8,
+                              ),
+                              onPressed:
+                                  store.canClaimDaily
+                                      ? () async {
+                                        final got = await store.claimDaily();
+                                        if (got != null && context.mounted) {
+                                          _toast(
+                                            context,
+                                            '+$got💎 DAILY BONUS!',
+                                            kMint,
+                                          );
+                                        }
+                                      }
+                                      : null,
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        const SectionDivider(),
+                        const SizedBox(height: 10),
+                        const Text(
+                          'DAILY QUESTS',
+                          style: TextStyle(
+                            fontFamily: 'monospace',
+                            fontSize: 10,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 2,
+                          ),
+                        ),
                         const SizedBox(height: 8),
+                        for (final q in store.quests) ...[
+                          _QuestRow(store: store, quest: q, onToast: _toast),
+                          const SizedBox(height: 8),
+                        ],
                       ],
-                    ],
-                  ),
+                    ),
           ),
         );
       },
@@ -288,9 +312,10 @@ class _QuestRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final progress = quest.target == 0
-        ? 1.0
-        : (quest.current / quest.target).clamp(0.0, 1.0);
+    final progress =
+        quest.target == 0
+            ? 1.0
+            : (quest.current / quest.target).clamp(0.0, 1.0);
     return Row(
       children: [
         Expanded(
@@ -315,9 +340,7 @@ class _QuestRow extends StatelessWidget {
                 child: FractionallySizedBox(
                   alignment: Alignment.centerLeft,
                   widthFactor: progress,
-                  child: Container(
-                    color: quest.done ? kMint : kCanary,
-                  ),
+                  child: Container(color: quest.done ? kMint : kCanary),
                 ),
               ),
             ],
@@ -328,19 +351,23 @@ class _QuestRow extends StatelessWidget {
           const Text('✓', style: TextStyle(fontSize: 18))
         else
           BrutalButton(
-            label: quest.done ? '+${quest.reward}💎' : '${quest.current}/${quest.target}',
+            label:
+                quest.done
+                    ? '+${quest.reward}💎'
+                    : '${quest.current}/${quest.target}',
             bg: quest.done ? kMint : Colors.white,
             enabled: quest.done,
             fontSize: 11,
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            onPressed: quest.done
-                ? () async {
-                    final got = await store.claimQuest(quest.id);
-                    if (got > 0 && context.mounted) {
-                      onToast(context, 'QUEST COMPLETE +$got💎', kMint);
+            onPressed:
+                quest.done
+                    ? () async {
+                      final got = await store.claimQuest(quest.id);
+                      if (got > 0 && context.mounted) {
+                        onToast(context, 'QUEST COMPLETE +$got💎', kMint);
+                      }
                     }
-                  }
-                : null,
+                    : null,
           ),
       ],
     );
@@ -351,7 +378,11 @@ class _ModeCard extends StatelessWidget {
   final String label;
   final bool active;
   final VoidCallback onTap;
-  const _ModeCard({required this.label, required this.active, required this.onTap});
+  const _ModeCard({
+    required this.label,
+    required this.active,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -363,9 +394,10 @@ class _ModeCard extends StatelessWidget {
         decoration: BoxDecoration(
           color: active ? kMint : Colors.white,
           border: Border.all(color: kBlack, width: 2),
-          boxShadow: active
-              ? const [BoxShadow(color: kBlack, offset: Offset(4, 4))]
-              : kShadowNone,
+          boxShadow:
+              active
+                  ? const [BoxShadow(color: kBlack, offset: Offset(4, 4))]
+                  : kShadowNone,
         ),
         child: Row(
           children: [
@@ -408,24 +440,30 @@ class _SignInChip extends StatelessWidget {
       shadow: kShadowSm,
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       child: GestureDetector(
-        onTap: ready
-            ? () => pushBrutal(
-                context,
-                user != null
-                    ? ProfilePage(store: store)
-                    : SignInPage(store: store),
-              )
-            : null,
+        onTap:
+            ready
+                ? () => pushBrutal(
+                  context,
+                  user != null
+                      ? ProfilePage(store: store)
+                      : SignInPage(store: store),
+                )
+                : null,
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Text(user != null ? '⭕' : '👤', style: const TextStyle(fontSize: 18)),
+            Text(
+              user != null ? '⭕' : '👤',
+              style: const TextStyle(fontSize: 18),
+            ),
             const SizedBox(width: 8),
             Flexible(
               child: Text(
                 user != null
                     ? 'SIGNED IN: ${user.name.toUpperCase()}'
-                    : (ready ? 'SIGN IN FOR LEADERBOARD' : 'SIGN-IN: FIREBASE NOT SET UP'),
+                    : (ready
+                        ? 'SIGN IN FOR LEADERBOARD'
+                        : 'SIGN-IN: FIREBASE NOT SET UP'),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
@@ -601,15 +639,16 @@ class _CustomGameBodyState extends State<_CustomGameBody> {
             BrutalButton(
               label: 'NEXT → PICK FIGHTERS',
               bg: kCanary,
-              onPressed: () => pushBrutal(
-                context,
-                EmojiSelectionPage(
-                  store: widget.store,
-                  mode: _mode,
-                  blitzSeconds: _blitz,
-                  ranked: _ranked,
-                ),
-              ),
+              onPressed:
+                  () => pushBrutal(
+                    context,
+                    EmojiSelectionPage(
+                      store: widget.store,
+                      mode: _mode,
+                      blitzSeconds: _blitz,
+                      ranked: _ranked,
+                    ),
+                  ),
             ),
           ],
         );
@@ -716,8 +755,7 @@ class _EmojiSelectionBodyState extends State<_EmojiSelectionBody> {
               child: _PickerHeader(
                 label: 'PLAYER 1',
                 selected: _p1,
-                onRandom: () =>
-                    setState(() => _p1 = _randomFree(widget.store)),
+                onRandom: () => setState(() => _p1 = _randomFree(widget.store)),
               ),
             ),
             const SizedBox(height: 8),
@@ -731,18 +769,20 @@ class _EmojiSelectionBodyState extends State<_EmojiSelectionBody> {
               bg: vsAi ? kMint : _p2Color,
               shadow: vsAi ? kShadowNone : kShadow,
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              child: vsAi
-                  ? const _PickerHeader(
-                      label: 'CPU OPPONENT',
-                      selected: kAiEmoji,
-                      hint: '🤖 NO STOCK',
-                    )
-                  : _PickerHeader(
-                      label: 'PLAYER 2',
-                      selected: _p2,
-                      onRandom: () =>
-                          setState(() => _p2 = _randomFree(widget.store)),
-                    ),
+              child:
+                  vsAi
+                      ? const _PickerHeader(
+                        label: 'CPU OPPONENT',
+                        selected: kAiEmoji,
+                        hint: '🤖 NO STOCK',
+                      )
+                      : _PickerHeader(
+                        label: 'PLAYER 2',
+                        selected: _p2,
+                        onRandom:
+                            () =>
+                                setState(() => _p2 = _randomFree(widget.store)),
+                      ),
             ),
             if (!vsAi) ...[
               const SizedBox(height: 8),
@@ -755,17 +795,18 @@ class _EmojiSelectionBodyState extends State<_EmojiSelectionBody> {
             const SizedBox(height: 18),
             BrutalButton(
               label: widget.mode.label,
-              onPressed: () => pushBrutal(
-                context,
-                GamePage(
-                  store: widget.store,
-                  mode: widget.mode,
-                  p1Emoji: _p1,
-                  p2Emoji: widget.mode.isAi ? kAiEmoji : _p2,
-                  blitzSeconds: widget.blitzSeconds,
-                  ranked: widget.ranked,
-                ),
-              ),
+              onPressed:
+                  () => pushBrutal(
+                    context,
+                    GamePage(
+                      store: widget.store,
+                      mode: widget.mode,
+                      p1Emoji: _p1,
+                      p2Emoji: widget.mode.isAi ? kAiEmoji : _p2,
+                      blitzSeconds: widget.blitzSeconds,
+                      ranked: widget.ranked,
+                    ),
+                  ),
             ),
           ],
         );
@@ -834,15 +875,14 @@ class _PickerHeader extends StatelessWidget {
                   onTap: onRandom,
                   child: Container(
                     padding: const EdgeInsets.symmetric(
-                        horizontal: 6, vertical: 4),
+                      horizontal: 6,
+                      vertical: 4,
+                    ),
                     decoration: BoxDecoration(
                       color: Colors.white,
                       border: Border.all(color: kBlack, width: 2),
                     ),
-                    child: const Text(
-                      '🎲',
-                      style: TextStyle(fontSize: 14),
-                    ),
+                    child: const Text('🎲', style: TextStyle(fontSize: 14)),
                   ),
                 ),
               ],
@@ -857,7 +897,11 @@ class _OptionChip extends StatelessWidget {
   final String label;
   final bool active;
   final VoidCallback onTap;
-  const _OptionChip({required this.label, required this.active, required this.onTap});
+  const _OptionChip({
+    required this.label,
+    required this.active,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -966,8 +1010,7 @@ class _GamePageState extends State<GamePage> {
   int? _secondsLeft;
   final List<int> _moves = [];
 
-  bool get _isAiTurn =>
-      widget.mode.isAi && _current == widget.p2Emoji;
+  bool get _isAiTurn => widget.mode.isAi && _current == widget.p2Emoji;
 
   @override
   void initState() {
@@ -1047,12 +1090,13 @@ class _GamePageState extends State<GamePage> {
     if (!mounted || _over) return;
     final empties = [
       for (int i = 0; i < 9; i++)
-        if (_board[i] == null) i
+        if (_board[i] == null) i,
     ];
     if (empties.isEmpty) return;
-    final pick = widget.mode == GameMode.vsAiEasy
-        ? empties[math.Random().nextInt(empties.length)]
-        : _bestAiMove(empties);
+    final pick =
+        widget.mode == GameMode.vsAiEasy
+            ? empties[math.Random().nextInt(empties.length)]
+            : _bestAiMove(empties);
     _move(pick, widget.p2Emoji);
   }
 
@@ -1100,10 +1144,12 @@ class _GamePageState extends State<GamePage> {
   void _checkEnd() {
     final w = _winner();
     if (w != null) {
-      final line = _winLines.firstWhere((l) =>
-          _board[l[0]] != null &&
-          _board[l[0]] == _board[l[1]] &&
-          _board[l[0]] == _board[l[2]]);
+      final line = _winLines.firstWhere(
+        (l) =>
+            _board[l[0]] != null &&
+            _board[l[0]] == _board[l[1]] &&
+            _board[l[0]] == _board[l[2]],
+      );
       final p1Won = w == widget.p1Emoji;
       final p2Won = w == widget.p2Emoji;
       setState(() {
@@ -1121,12 +1167,9 @@ class _GamePageState extends State<GamePage> {
     if (_reported) return;
     _reported = true;
     final playerWon = widget.mode.isAi ? p1Won : p1Won || p2Won;
-    widget.store.reportRound(
-      p1Win: p1Won,
-      p2Win: p2Won,
-      playerWon: playerWon,
-    );
-    final reward = playerWon ? widget.store.winReward * (widget.ranked ? 2 : 1) : 0;
+    widget.store.reportRound(p1Win: p1Won, p2Win: p2Won, playerWon: playerWon);
+    final reward =
+        playerWon ? widget.store.winReward * (widget.ranked ? 2 : 1) : 0;
     if (reward > 0) widget.store.addDiamonds(reward);
     widget.store.services.recordMatch(
       mode: widget.mode.label,
@@ -1169,80 +1212,83 @@ class _GamePageState extends State<GamePage> {
     showDialog(
       context: context,
       barrierColor: kBlack.withValues(alpha: 0.6),
-      builder: (context) => Dialog(
-        backgroundColor: Colors.transparent,
-        child: BrutalCard(
-          bg: kCanary,
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(emoji, style: const TextStyle(fontSize: 56)),
-              const SizedBox(height: 8),
-              Text(
-                title,
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  fontFamily: 'monospace',
-                  fontSize: 22,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: 2,
-                ),
-              ),
-              const SizedBox(height: 6),
-              if (rewardEarned > 0) ...[
-                Text(
-                  '+$rewardEarned💎',
-                  style: const TextStyle(
-                    fontFamily: 'monospace',
-                    fontSize: 18,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-                if (streak >= 2) ...[
-                  const SizedBox(height: 2),
+      builder:
+          (context) => Dialog(
+            backgroundColor: Colors.transparent,
+            child: BrutalCard(
+              bg: kCanary,
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(emoji, style: const TextStyle(fontSize: 56)),
+                  const SizedBox(height: 8),
                   Text(
-                    '🔥 $streak-WIN STREAK (x$mult)',
+                    title,
+                    textAlign: TextAlign.center,
                     style: const TextStyle(
                       fontFamily: 'monospace',
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
+                      fontSize: 22,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 2,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  if (rewardEarned > 0) ...[
+                    Text(
+                      '+$rewardEarned💎',
+                      style: const TextStyle(
+                        fontFamily: 'monospace',
+                        fontSize: 18,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    if (streak >= 2) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        '🔥 $streak-WIN STREAK (x$mult)',
+                        style: const TextStyle(
+                          fontFamily: 'monospace',
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
+                  ],
+                  const SizedBox(height: 16),
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        BrutalButton(
+                          label: 'REMATCH',
+                          onPressed: () {
+                            Navigator.pop(context);
+                            _reset();
+                          },
+                        ),
+                        const SizedBox(width: 10),
+                        BrutalButton(
+                          label: 'MENU',
+                          bg: Colors.white,
+                          fontSize: 15,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 20,
+                            vertical: 14,
+                          ),
+                          onPressed: () {
+                            Navigator.pop(context);
+                            Navigator.pop(context);
+                          },
+                        ),
+                      ],
                     ),
                   ),
                 ],
-              ],
-              const SizedBox(height: 16),
-              FittedBox(
-                fit: BoxFit.scaleDown,
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    BrutalButton(
-                      label: 'REMATCH',
-                      onPressed: () {
-                        Navigator.pop(context);
-                        _reset();
-                      },
-                    ),
-                    const SizedBox(width: 10),
-                    BrutalButton(
-                      label: 'MENU',
-                      bg: Colors.white,
-                      fontSize: 15,
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 20, vertical: 14),
-                      onPressed: () {
-                        Navigator.pop(context);
-                        Navigator.pop(context);
-                      },
-                    ),
-                  ],
-                ),
               ),
-            ],
+            ),
           ),
-        ),
-      ),
     );
   }
 
@@ -1344,7 +1390,8 @@ class _TurnStrip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final active = current == p1;
-    final label = isAiMode && active ? 'YOUR TURN' : '${active ? 'P1' : 'P2'} TURN';
+    final label =
+        isAiMode && active ? 'YOUR TURN' : '${active ? 'P1' : 'P2'} TURN';
     return BrutalCard(
       bg: active ? kMint : kCoral,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -1397,9 +1444,7 @@ class _Board extends StatelessWidget {
       decoration: BoxDecoration(
         color: theme.boardBg,
         border: Border.all(color: frame.color, width: frame.width),
-        boxShadow: const [
-          BoxShadow(color: kBlack, offset: Offset(6, 6)),
-        ],
+        boxShadow: const [BoxShadow(color: kBlack, offset: Offset(6, 6))],
       ),
       child: AspectRatio(
         aspectRatio: 1,
@@ -1420,19 +1465,17 @@ class _Board extends StatelessWidget {
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 120),
                 decoration: BoxDecoration(
-                  color: isWin
-                      ? theme.accent
-                      : (mark == null ? theme.cellBg : gradientColor(mark)),
+                  color:
+                      isWin
+                          ? theme.accent
+                          : (mark == null ? theme.cellBg : gradientColor(mark)),
                   border: Border.all(color: kBlack, width: 2),
                   boxShadow: const [
                     BoxShadow(color: kBlack, offset: Offset(4, 4)),
                   ],
                 ),
                 child: Center(
-                  child: Text(
-                    mark ?? '',
-                    style: const TextStyle(fontSize: 40),
-                  ),
+                  child: Text(mark ?? '', style: const TextStyle(fontSize: 40)),
                 ),
               ),
             );
@@ -1526,9 +1569,11 @@ class StorePage extends StatelessWidget {
                         bg: kSky,
                         fontSize: 13,
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 14, vertical: 10),
-                        onPressed: () =>
-                            pushBrutal(context, ThemesPage(store: store)),
+                          horizontal: 14,
+                          vertical: 10,
+                        ),
+                        onPressed:
+                            () => pushBrutal(context, ThemesPage(store: store)),
                       ),
                       const SizedBox(height: 16),
                       GridView.builder(
@@ -1537,11 +1582,11 @@ class StorePage extends StatelessWidget {
                         itemCount: kCatalog.length,
                         gridDelegate:
                             const SliverGridDelegateWithMaxCrossAxisExtent(
-                          maxCrossAxisExtent: 150,
-                          mainAxisSpacing: 10,
-                          crossAxisSpacing: 10,
-                          childAspectRatio: 0.78,
-                        ),
+                              maxCrossAxisExtent: 150,
+                              mainAxisSpacing: 10,
+                              crossAxisSpacing: 10,
+                              childAspectRatio: 0.78,
+                            ),
                         itemBuilder: (context, i) {
                           final item = kCatalog[i];
                           final unlocked = store.isUnlocked(item.emoji);
@@ -1895,9 +1940,10 @@ class _LeaderboardPageState extends State<LeaderboardPage> {
                           for (final p in LeaderboardPeriod.values)
                             _OptionChip(
                               active: _period == p,
-                              label: p == LeaderboardPeriod.weekly
-                                  ? 'WEEKLY'
-                                  : 'MONTHLY',
+                              label:
+                                  p == LeaderboardPeriod.weekly
+                                      ? 'WEEKLY'
+                                      : 'MONTHLY',
                               onTap: () {
                                 setState(() => _period = p);
                                 _refresh();
@@ -1989,7 +2035,8 @@ class _LeaderboardPageState extends State<LeaderboardPage> {
                             _RankRow(
                               rank: i + 1,
                               entry: entries[i],
-                              isMe: widget.store.user != null &&
+                              isMe:
+                                  widget.store.user != null &&
                                   widget.store.user!.uid == entries[i].uid &&
                                   entries[i].uid.isNotEmpty,
                             ),
@@ -2011,21 +2058,18 @@ class _RankRow extends StatelessWidget {
   final int rank;
   final LeaderboardEntry entry;
   final bool isMe;
-  const _RankRow({
-    required this.rank,
-    required this.entry,
-    required this.isMe,
-  });
+  const _RankRow({required this.rank, required this.entry, required this.isMe});
 
   @override
   Widget build(BuildContext context) {
-    final medal = rank == 1
-        ? '🥇'
-        : rank == 2
+    final medal =
+        rank == 1
+            ? '🥇'
+            : rank == 2
             ? '🥈'
             : rank == 3
-                ? '🥉'
-                : '$rank';
+            ? '🥉'
+            : '$rank';
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: BrutalCard(
@@ -2195,11 +2239,11 @@ class ThemesPage extends StatelessWidget {
                         itemCount: kBoardThemes.length,
                         gridDelegate:
                             const SliverGridDelegateWithMaxCrossAxisExtent(
-                          maxCrossAxisExtent: 160,
-                          mainAxisSpacing: 10,
-                          crossAxisSpacing: 10,
-                          childAspectRatio: 0.9,
-                        ),
+                              maxCrossAxisExtent: 160,
+                              mainAxisSpacing: 10,
+                              crossAxisSpacing: 10,
+                              childAspectRatio: 0.9,
+                            ),
                         itemBuilder: (context, i) {
                           final t = kBoardThemes[i];
                           final owned = store.isThemeUnlocked(t.id);
@@ -2234,11 +2278,11 @@ class ThemesPage extends StatelessWidget {
                         itemCount: kBoardFrames.length,
                         gridDelegate:
                             const SliverGridDelegateWithMaxCrossAxisExtent(
-                          maxCrossAxisExtent: 140,
-                          mainAxisSpacing: 10,
-                          crossAxisSpacing: 10,
-                          childAspectRatio: 0.9,
-                        ),
+                              maxCrossAxisExtent: 140,
+                              mainAxisSpacing: 10,
+                              crossAxisSpacing: 10,
+                              childAspectRatio: 0.9,
+                            ),
                         itemBuilder: (context, i) {
                           final f = kBoardFrames[i];
                           final owned = store.isFrameUnlocked(f.id);
@@ -2555,7 +2599,8 @@ class _ProfilePageState extends State<ProfilePage> {
                         child: Column(
                           children: [
                             Text(
-                              store.services.avatar ?? (store.user != null ? '⭕' : '👤'),
+                              store.services.avatar ??
+                                  (store.user != null ? '⭕' : '👤'),
                               style: const TextStyle(fontSize: 64),
                             ),
                             const SizedBox(height: 8),
@@ -2612,7 +2657,9 @@ class _ProfilePageState extends State<ProfilePage> {
                             hintText: 'YOUR NAME',
                             border: InputBorder.none,
                             contentPadding: EdgeInsets.symmetric(
-                                horizontal: 12, vertical: 10),
+                              horizontal: 12,
+                              vertical: 10,
+                            ),
                           ),
                         ),
                       ),
@@ -2654,10 +2701,10 @@ class _ProfilePageState extends State<ProfilePage> {
                         itemCount: store.unlocked.length,
                         gridDelegate:
                             const SliverGridDelegateWithMaxCrossAxisExtent(
-                          maxCrossAxisExtent: 72,
-                          mainAxisSpacing: 8,
-                          crossAxisSpacing: 8,
-                        ),
+                              maxCrossAxisExtent: 72,
+                              mainAxisSpacing: 8,
+                              crossAxisSpacing: 8,
+                            ),
                         itemBuilder: (context, i) {
                           final emoji = store.unlocked.toList()[i];
                           final active = emoji == _avatar;
@@ -2670,7 +2717,9 @@ class _ProfilePageState extends State<ProfilePage> {
                               decoration: BoxDecoration(
                                 color: active ? kCanary : Colors.white,
                                 border: Border.all(
-                                    color: kBlack, width: active ? 3 : 2),
+                                  color: kBlack,
+                                  width: active ? 3 : 2,
+                                ),
                               ),
                               child: Center(
                                 child: Text(
@@ -2698,8 +2747,12 @@ class _ProfilePageState extends State<ProfilePage> {
                           ),
                           BrutalIconButton(
                             icon: Icons.refresh,
-                            onPressed: () => setState(
-                                () => _friends = widget.store.services.fetchFriends()),
+                            onPressed:
+                                () => setState(
+                                  () =>
+                                      _friends =
+                                          widget.store.services.fetchFriends(),
+                                ),
                           ),
                         ],
                       ),
@@ -2737,58 +2790,79 @@ class _ProfilePageState extends State<ProfilePage> {
                           }
                           final rows = <Widget>[];
                           if (data.incoming.isNotEmpty) {
-                            rows.add(_friendHeader('REQUESTS IN (${data.incoming.length})'));
+                            rows.add(
+                              _friendHeader(
+                                'REQUESTS IN (${data.incoming.length})',
+                              ),
+                            );
                             for (final f in data.incoming) {
-                              rows.add(Row(
-                                children: [
-                                  Expanded(
-                                    child: _FriendTile(friend: f, pending: true),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  BrutalButton(
-                                    label: 'ACCEPT',
-                                    bg: kMint,
-                                    fontSize: 11,
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 12, vertical: 8),
-                                    onPressed: () => _accept(f.uid),
-                                  ),
-                                  const SizedBox(width: 6),
-                                  BrutalButton(
-                                    label: '✕',
-                                    bg: Colors.white,
-                                    fontSize: 12,
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 10, vertical: 9),
-                                    onPressed: () => _decline(f.uid),
-                                  ),
-                                ],
-                              ));
+                              rows.add(
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: _FriendTile(
+                                        friend: f,
+                                        pending: true,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    BrutalButton(
+                                      label: 'ACCEPT',
+                                      bg: kMint,
+                                      fontSize: 11,
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 12,
+                                        vertical: 8,
+                                      ),
+                                      onPressed: () => _accept(f.uid),
+                                    ),
+                                    const SizedBox(width: 6),
+                                    BrutalButton(
+                                      label: '✕',
+                                      bg: Colors.white,
+                                      fontSize: 12,
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 10,
+                                        vertical: 9,
+                                      ),
+                                      onPressed: () => _decline(f.uid),
+                                    ),
+                                  ],
+                                ),
+                              );
                             }
                           }
-                          rows.add(_friendHeader('FRIENDS (${data.friends.length})'));
+                          rows.add(
+                            _friendHeader('FRIENDS (${data.friends.length})'),
+                          );
                           if (data.friends.isEmpty) {
-                            rows.add(const BrutalCard(
-                              bg: Colors.white,
-                              shadow: kShadowNone,
-                              padding: EdgeInsets.all(12),
-                              child: Text(
-                                'NO FRIENDS YET.\nPLAY ONLINE AND ADD YOUR RIVALS AFTER A MATCH.',
-                                textAlign: TextAlign.center,
-                                style: TextStyle(
-                                  fontFamily: 'monospace',
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w700,
+                            rows.add(
+                              const BrutalCard(
+                                bg: Colors.white,
+                                shadow: kShadowNone,
+                                padding: EdgeInsets.all(12),
+                                child: Text(
+                                  'NO FRIENDS YET.\nPLAY ONLINE AND ADD YOUR RIVALS AFTER A MATCH.',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    fontFamily: 'monospace',
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w700,
+                                  ),
                                 ),
                               ),
-                            ));
+                            );
                           } else {
                             for (final f in data.friends) {
                               rows.add(_FriendTile(friend: f));
                             }
                           }
                           if (data.outgoing.isNotEmpty) {
-                            rows.add(_friendHeader('PENDING OUT (${data.outgoing.length})'));
+                            rows.add(
+                              _friendHeader(
+                                'PENDING OUT (${data.outgoing.length})',
+                              ),
+                            );
                             for (final f in data.outgoing) {
                               rows.add(_FriendTile(friend: f, pending: true));
                             }
@@ -2839,7 +2913,10 @@ class _ProfileStatsCard extends StatelessWidget {
               _ProfileStat(icon: '🎮', value: '$matches', label: 'MATCHES'),
               const SizedBox(width: 8),
               _ProfileStat(
-                  icon: '💎', value: '${store.totalGemsEarned}', label: 'GEMS EARNED'),
+                icon: '💎',
+                value: '${store.totalGemsEarned}',
+                label: 'GEMS EARNED',
+              ),
             ],
           ),
           const SizedBox(height: 10),
@@ -2913,17 +2990,17 @@ class _ProfileStat extends StatelessWidget {
 }
 
 Widget _friendHeader(String label) => Padding(
-      padding: const EdgeInsets.only(top: 10, bottom: 6),
-      child: Text(
-        label,
-        style: const TextStyle(
-          fontFamily: 'monospace',
-          fontSize: 10,
-          fontWeight: FontWeight.w900,
-          letterSpacing: 2,
-        ),
-      ),
-    );
+  padding: const EdgeInsets.only(top: 10, bottom: 6),
+  child: Text(
+    label,
+    style: const TextStyle(
+      fontFamily: 'monospace',
+      fontSize: 10,
+      fontWeight: FontWeight.w900,
+      letterSpacing: 2,
+    ),
+  ),
+);
 
 class _FriendTile extends StatelessWidget {
   final FriendEntry friend;
@@ -3057,10 +3134,9 @@ class _MatchFeedPageState extends State<MatchFeedPage> {
                           for (final m in matches)
                             _MatchCard(
                               match: m,
-                              onTap: () => pushBrutal(
-                                context,
-                                ReplayPage(match: m),
-                              ),
+                              onTap:
+                                  () =>
+                                      pushBrutal(context, ReplayPage(match: m)),
                             ),
                         ],
                       );
@@ -3083,9 +3159,10 @@ class _MatchCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final winLabel = match.winner == 'p1'
-        ? '🏆 ${match.p1Name}'
-        : match.winner == 'p2'
+    final winLabel =
+        match.winner == 'p1'
+            ? '🏆 ${match.p1Name}'
+            : match.winner == 'p2'
             ? '🏆 ${match.p2Name}'
             : '🤝 DRAW';
     return Padding(
@@ -3101,18 +3178,24 @@ class _MatchCard extends StatelessWidget {
             children: [
               Row(
                 children: [
-                  Text(match.mode, style: const TextStyle(
-                    fontFamily: 'monospace',
-                    fontSize: 10,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: 1,
-                  )),
+                  Text(
+                    match.mode,
+                    style: const TextStyle(
+                      fontFamily: 'monospace',
+                      fontSize: 10,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 1,
+                    ),
+                  ),
                   const Spacer(),
-                  const Text('▶ REPLAY', style: TextStyle(
-                    fontFamily: 'monospace',
-                    fontSize: 9,
-                    fontWeight: FontWeight.w900,
-                  )),
+                  const Text(
+                    '▶ REPLAY',
+                    style: TextStyle(
+                      fontFamily: 'monospace',
+                      fontSize: 9,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
                 ],
               ),
               const SizedBox(height: 6),
@@ -3282,16 +3365,28 @@ class _ReplayPageState extends State<ReplayPage> {
                             ),
                           ),
                         ),
-                        _ReplayBtn(icon: '◀', onTap: _step > 0 ? () => setState(() => _step -= 1) : null),
+                        _ReplayBtn(
+                          icon: '◀',
+                          onTap:
+                              _step > 0
+                                  ? () => setState(() => _step -= 1)
+                                  : null,
+                        ),
                         const SizedBox(width: 6),
                         _ReplayBtn(
-                            icon: _playing ? '⏸' : '▶',
-                            onTap: (atEnd && !_playing) ? _reset : _togglePlay),
+                          icon: _playing ? '⏸' : '▶',
+                          onTap: (atEnd && !_playing) ? _reset : _togglePlay,
+                        ),
                         const SizedBox(width: 6),
-                        _ReplayBtn(icon: '▶',
-                            onTap: (!atEnd && !_playing)
-                                ? () => setState(() => _step += 1)
-                                : (_playing ? null : (_step == 0 ? null : _reset))),
+                        _ReplayBtn(
+                          icon: '▶',
+                          onTap:
+                              (!atEnd && !_playing)
+                                  ? () => setState(() => _step += 1)
+                                  : (_playing
+                                      ? null
+                                      : (_step == 0 ? null : _reset)),
+                        ),
                       ],
                     ),
                   ),
@@ -3546,8 +3641,10 @@ class _OnlineLobbyPageState extends State<OnlineLobbyPage> {
                                   padding: const EdgeInsets.all(10),
                                   child: Row(
                                     children: [
-                                      Text(g.hostEmoji,
-                                          style: const TextStyle(fontSize: 22)),
+                                      Text(
+                                        g.hostEmoji,
+                                        style: const TextStyle(fontSize: 22),
+                                      ),
                                       const SizedBox(width: 8),
                                       Expanded(
                                         child: Text(
@@ -3566,7 +3663,9 @@ class _OnlineLobbyPageState extends State<OnlineLobbyPage> {
                                         bg: kMint,
                                         fontSize: 13,
                                         padding: const EdgeInsets.symmetric(
-                                            horizontal: 14, vertical: 8),
+                                          horizontal: 14,
+                                          vertical: 8,
+                                        ),
                                         onPressed: () => _join(g.id),
                                       ),
                                     ],
@@ -3625,7 +3724,15 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
   bool _myProposed = false;
   bool _incomingShown = false;
   bool _roundOver = false;
+  final List<BuildContext> _openDialogs = [];
   StreamSubscription? _sub;
+
+  void _closeAllDialogs() {
+    for (final c in _openDialogs.reversed) {
+      if (c.mounted) Navigator.of(c).pop();
+    }
+    _openDialogs.clear();
+  }
 
   String get _mySide => widget.isHost ? 'host' : 'guest';
   String? get _oppUid => widget.isHost ? _guestUid : _hostUid;
@@ -3656,8 +3763,9 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
     final prevReq = _rematchReq;
     setState(() {
       _board = List<String?>.from(
-          (data['board'] as List?)?.map((e) => e as String?) ??
-              List.filled(9, null));
+        (data['board'] as List?)?.map((e) => e as String?) ??
+            List.filled(9, null),
+      );
       _turn = data['turn'] as String?;
       _status = (data['status'] as String?) ?? 'open';
       _winner = (data['winner'] as String?) ?? '';
@@ -3666,9 +3774,10 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
       _guestUid = data['guestUid'] as String?;
       final guestE = data['guestEmoji'] as String?;
       _oppEmoji = widget.isHost ? guestE : (data['hostEmoji'] as String?);
-      _oppName = widget.isHost
-          ? (data['guestName'] as String?)
-          : (data['hostName'] as String?);
+      _oppName =
+          widget.isHost
+              ? (data['guestName'] as String?)
+              : (data['hostName'] as String?);
       if (_status == 'done' && !_reported) {
         _reported = true;
         _settle();
@@ -3680,12 +3789,13 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
       _schedule(() {
         if (!mounted || _status != 'done') return;
         final req = _rematchReq;
+        if (_incomingShown) return;
         if (req == _mySide || _myProposed) {
           setState(() => _myProposed = true);
           return;
         }
         if (req.isNotEmpty) {
-          _incomingShown = true;
+          _closeAllDialogs();
           _showIncomingRematchDialog();
           return;
         }
@@ -3698,8 +3808,8 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
         _rematchReq.isNotEmpty &&
         _rematchReq != _mySide) {
       // Rival proposed a rematch while we had just finished.
-      _incomingShown = true;
-      _schedule(_showIncomingRematchDialog);
+      _closeAllDialogs();
+      _showIncomingRematchDialog();
     } else if (_status == 'closed' && !_roundOver && !_dialogShown) {
       _dialogShown = true;
       _schedule(_showClosedDialog);
@@ -3710,6 +3820,7 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
       _myProposed = false;
       _incomingShown = false;
       _dialogShown = false;
+      _closeAllDialogs();
       _schedule(() {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
@@ -3800,7 +3911,10 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
         const SnackBar(
           content: Text(
             'CAN\'T REQUEST A REMATCH',
-            style: TextStyle(fontFamily: 'monospace', fontWeight: FontWeight.w900),
+            style: TextStyle(
+              fontFamily: 'monospace',
+              fontWeight: FontWeight.w900,
+            ),
           ),
         ),
       );
@@ -3812,201 +3926,222 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
       context: context,
       barrierDismissible: false,
       barrierColor: kBlack.withValues(alpha: 0.6),
-      builder: (c) => Dialog(
-        backgroundColor: Colors.transparent,
-        child: BrutalCard(
-          bg: kCoral,
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text('❌', style: TextStyle(fontSize: 56)),
-              const SizedBox(height: 8),
-              const Text(
-                'RIVAL LEFT THE MATCH',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontFamily: 'monospace',
-                  fontSize: 20,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: 2,
+      builder: (c) {
+        _openDialogs
+          ..clear()
+          ..add(c);
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          child: BrutalCard(
+            bg: kCoral,
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text('❌', style: TextStyle(fontSize: 56)),
+                const SizedBox(height: 8),
+                const Text(
+                  'RIVAL LEFT THE MATCH',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontFamily: 'monospace',
+                    fontSize: 20,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 2,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 16),
-              BrutalButton(
-                label: 'OK',
-                bg: Colors.white,
-                onPressed: () => Navigator.pop(c),
-              ),
-            ],
+                const SizedBox(height: 16),
+                BrutalButton(
+                  label: 'OK',
+                  bg: Colors.white,
+                  onPressed: () => Navigator.pop(c),
+                ),
+              ],
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 
   void _showIncomingRematchDialog() {
+    _incomingShown = true;
     showDialog(
       context: context,
       barrierDismissible: false,
       barrierColor: kBlack.withValues(alpha: 0.6),
-      builder: (c) => Dialog(
-        backgroundColor: Colors.transparent,
-        child: BrutalCard(
-          bg: kMint,
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text('⚡', style: TextStyle(fontSize: 56)),
-              const SizedBox(height: 8),
-              const Text(
-                'REMATCH REQUEST!',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontFamily: 'monospace',
-                  fontSize: 18,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: 2,
+      builder: (c) {
+        _openDialogs
+          ..clear()
+          ..add(c);
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          child: BrutalCard(
+            bg: kMint,
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text('⚡', style: TextStyle(fontSize: 56)),
+                const SizedBox(height: 8),
+                const Text(
+                  'REMATCH REQUEST!',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontFamily: 'monospace',
+                    fontSize: 18,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 2,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                '${_oppName ?? 'RIVAL'} WANTS ANOTHER ROUND',
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  fontFamily: 'monospace',
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700,
+                const SizedBox(height: 6),
+                Text(
+                  '${_oppName ?? 'RIVAL'} WANTS ANOTHER ROUND',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontFamily: 'monospace',
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 16),
-              FittedBox(
-                fit: BoxFit.scaleDown,
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    BrutalButton(
-                      label: 'ACCEPT',
-                      bg: kCanary,
-                      onPressed: () {
-                        _incomingShown = false;
-                        Navigator.pop(c);
-                        _requestRematch();
-                      },
-                    ),
-                    const SizedBox(width: 10),
-                    BrutalButton(
-                      label: 'DECLINE',
-                      bg: Colors.white,
-                      fontSize: 15,
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 20, vertical: 14),
-                      onPressed: () {
-                        _incomingShown = false;
-                        Navigator.pop(c);
-                        widget.store.services.declineRematch(widget.docId);
-                      },
-                    ),
-                  ],
+                const SizedBox(height: 16),
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      BrutalButton(
+                        label: 'ACCEPT',
+                        bg: kCanary,
+                        onPressed: () {
+                          _incomingShown = false;
+                          Navigator.pop(c);
+                          _requestRematch();
+                        },
+                      ),
+                      const SizedBox(width: 10),
+                      BrutalButton(
+                        label: 'DECLINE',
+                        bg: Colors.white,
+                        fontSize: 15,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 20,
+                          vertical: 14,
+                        ),
+                        onPressed: () {
+                          _incomingShown = false;
+                          Navigator.pop(c);
+                          widget.store.services.declineRematch(widget.docId);
+                        },
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 
   void _showEndDialog() {
     final iWon = _winner.isNotEmpty && _winner == widget.myEmoji;
-    final title = iWon
-        ? 'YOU WIN!'
-        : (_winner.isNotEmpty ? 'YOU LOSE' : 'DRAW');
+    final title =
+        iWon ? 'YOU WIN!' : (_winner.isNotEmpty ? 'YOU LOSE' : 'DRAW');
     final mark = _winner.isNotEmpty ? _winner : '🤝';
     showDialog(
       context: context,
       barrierDismissible: false,
       barrierColor: kBlack.withValues(alpha: 0.6),
-      builder: (context) => Dialog(
-        backgroundColor: Colors.transparent,
-        child: BrutalCard(
-          bg: iWon ? kMint : (_winner.isNotEmpty ? kCoral : kCanary),
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(mark, style: const TextStyle(fontSize: 56)),
-              const SizedBox(height: 8),
-              Text(
-                title,
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  fontFamily: 'monospace',
-                  fontSize: 22,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: 2,
-                ),
-              ),
-              if (iWon) ...[
-                const SizedBox(height: 6),
+      builder: (context) {
+        _openDialogs
+          ..clear()
+          ..add(context);
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          child: BrutalCard(
+            bg: iWon ? kMint : (_winner.isNotEmpty ? kCoral : kCanary),
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(mark, style: const TextStyle(fontSize: 56)),
+                const SizedBox(height: 8),
                 Text(
-                  '+${widget.store.winReward}💎',
+                  title,
+                  textAlign: TextAlign.center,
                   style: const TextStyle(
                     fontFamily: 'monospace',
-                    fontSize: 18,
+                    fontSize: 22,
                     fontWeight: FontWeight.w900,
+                    letterSpacing: 2,
+                  ),
+                ),
+                if (iWon) ...[
+                  const SizedBox(height: 6),
+                  Text(
+                    '+${widget.store.winReward}💎',
+                    style: const TextStyle(
+                      fontFamily: 'monospace',
+                      fontSize: 18,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 16),
+                if (_canAddFriend) ...[
+                  BrutalButton(
+                    label: '➕ ADD FRIEND',
+                    bg: kCanary,
+                    fontSize: 15,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 12,
+                    ),
+                    onPressed: () {
+                      Navigator.pop(context);
+                      _addFriend();
+                    },
+                  ),
+                  const SizedBox(height: 10),
+                ],
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      BrutalButton(
+                        label: 'REMATCH',
+                        onPressed: () {
+                          _dialogShown = false;
+                          Navigator.pop(context);
+                          _requestRematch();
+                        },
+                      ),
+                      const SizedBox(width: 10),
+                      BrutalButton(
+                        label: 'LEAVE',
+                        bg: Colors.white,
+                        fontSize: 15,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 20,
+                          vertical: 14,
+                        ),
+                        onPressed: () {
+                          _dialogShown = false;
+                          Navigator.pop(context);
+                          _leave();
+                        },
+                      ),
+                    ],
                   ),
                 ),
               ],
-              const SizedBox(height: 16),
-              if (_canAddFriend) ...[
-                BrutalButton(
-                  label: '➕ ADD FRIEND',
-                  bg: kCanary,
-                  fontSize: 15,
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 20, vertical: 12),
-                  onPressed: () {
-                    Navigator.pop(context);
-                    _addFriend();
-                  },
-                ),
-                const SizedBox(height: 10),
-              ],
-              FittedBox(
-                fit: BoxFit.scaleDown,
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    BrutalButton(
-                      label: 'REMATCH',
-                      onPressed: () {
-                        _dialogShown = false;
-                        Navigator.pop(context);
-                        _requestRematch();
-                      },
-                    ),
-                    const SizedBox(width: 10),
-                    BrutalButton(
-                      label: 'LEAVE',
-                      bg: Colors.white,
-                      fontSize: 15,
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 20, vertical: 14),
-                      onPressed: () {
-                        _dialogShown = false;
-                        Navigator.pop(context);
-                        _leave();
-                      },
-                    ),
-                  ],
-                ),
-              ),
-            ],
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 
@@ -4106,8 +4241,7 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
                           BrutalCard(
                             bg: kMint,
                             child: Text(
-                              _winner.isNotEmpty &&
-                                      _winner == widget.myEmoji
+                              _winner.isNotEmpty && _winner == widget.myEmoji
                                   ? '🏆 YOU WIN! +${widget.store.winReward}💎'
                                   : (_winner.isNotEmpty ? 'YOU LOSE' : 'DRAW'),
                               textAlign: TextAlign.center,
@@ -4164,9 +4298,10 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
                     const SizedBox(height: 12),
                     _Board(
                       board: _board,
-                      winningLine: _winner.isNotEmpty
-                          ? _winningLineOf(_board, _winner)
-                          : null,
+                      winningLine:
+                          _winner.isNotEmpty
+                              ? _winningLineOf(_board, _winner)
+                              : null,
                       onTap: _onCell,
                       theme: widget.store.theme,
                       frame: widget.store.frame,
