@@ -1,26 +1,106 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:game/main.dart';
 
 void main() {
-  testWidgets('home page renders and starts a game', (tester) async {
+  testWidgets('home page renders and mode can be selected', (tester) async {
     await tester.pumpWidget(const EmojiTicTacToe());
     await tester.pumpAndSettle();
 
     expect(find.text('PLAY ▶'), findsOneWidget);
-    expect(find.text('EMOJI\nTIC·TAC·TOE'), findsOneWidget);
+    expect(find.text('EMOJI\nTIC·TAC·TOE'), findsWidgets);
     expect(find.text('choose mode'), findsOneWidget);
-  });
-
-  testWidgets('mode picker switches to vs ai hard', (tester) async {
-    await tester.pumpWidget(const EmojiTicTacToe());
-    await tester.pumpAndSettle();
+    expect(find.text('2 PLAYER'), findsOneWidget);
+    expect(find.text('VS AI · EASY'), findsOneWidget);
+    expect(find.text('VS AI · HARD'), findsOneWidget);
 
     await tester.tap(find.text('VS AI · HARD'));
+    await tester.pump();
+
+    await tester.ensureVisible(find.text('PLAY ▶'));
     await tester.pump();
     await tester.tap(find.text('PLAY ▶'));
     await tester.pumpAndSettle();
 
     expect(find.text('PICK YOUR FIGHTERS'), findsOneWidget);
   });
+
+  testWidgets('emoji pick and game render without overflow', (tester) async {
+    await tester.pumpWidget(const EmojiTicTacToe());
+    await tester.pumpAndSettle();
+
+    await tester.ensureVisible(find.text('PLAY ▶'));
+    await tester.pump();
+    await tester.tap(find.text('PLAY ▶'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('PICK YOUR FIGHTERS'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+
+    await tester.ensureVisible(find.text('2 PLAYER'));
+    await tester.pump();
+    await tester.tap(find.text('2 PLAYER'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('NEW GAME'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('store renders without overflow on narrow screen', (tester) async {
+    tester.view.physicalSize = const Size(320, 640);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(const EmojiTicTacToe());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.store_outlined));
+    await tester.pumpAndSettle();
+
+    expect(find.text('EMOJI STORE'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('game over dialog renders without overflow on narrow screen',
+      (tester) async {
+    tester.view.physicalSize = const Size(320, 640);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(const EmojiTicTacToe());
+    await tester.pumpAndSettle();
+
+    await tester.ensureVisible(find.text('PLAY ▶'));
+    await tester.pump();
+    await tester.tap(find.text('PLAY ▶'));
+    await tester.pumpAndSettle();
+
+    await tester.ensureVisible(find.text('2 PLAYER'));
+    await tester.pump();
+    await tester.tap(find.text('2 PLAYER'));
+    await tester.pumpAndSettle();
+
+    Future<void> play(int i) async {
+      final cell = _cellFinder(i);
+      await tester.ensureVisible(cell);
+      await tester.pump();
+      await tester.tap(cell);
+      await tester.pump();
+    }
+
+    // P1 wins on the diagonal: cells 0, 4, 8 (P2 blocks on 1 and 2).
+    await play(0);
+    await play(1);
+    await play(4);
+    await play(2);
+    await play(8);
+
+    expect(find.text('PLAY AGAIN'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+}
+
+Finder _cellFinder(int i) {
+  return find.byKey(ValueKey('cell-$i'));
 }

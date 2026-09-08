@@ -5,11 +5,11 @@ import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-const String _kWins = 'wins';
-const String _kGames = 'games';
-const String _kDraws = 'draws';
-const String _kName = 'name';
-const String _kPhoto = 'photoUrl';
+const String kWins = 'wins';
+const String kGames = 'games';
+const String kDraws = 'draws';
+const String kName = 'name';
+const String kPhoto = 'photoUrl';
 
 class AppUserProfile {
   final String uid;
@@ -44,9 +44,10 @@ class LeaderboardEntry {
 /// usable in "local mode" — sign-in buttons just explain what's needed.
 class AppServices extends ChangeNotifier {
   bool firebaseReady = false;
+  bool googleInitialized = false;
   AppUserProfile? user;
 
-  final GoogleSignIn _google = GoogleSignIn.standard();
+  final GoogleSignIn _google = GoogleSignIn.instance;
   FirebaseAuth? _auth;
   FirebaseFirestore? _db;
 
@@ -58,6 +59,7 @@ class AppServices extends ChangeNotifier {
 
   Future<void> init() async {
     await _initFirebase();
+    await _initGoogleSignIn();
     await _loadLocalTotals();
     notifyListeners();
   }
@@ -84,19 +86,28 @@ class AppServices extends ChangeNotifier {
     }
   }
 
+  Future<void> _initGoogleSignIn() async {
+    try {
+      await _google.initialize();
+      googleInitialized = true;
+    } catch (_) {
+      googleInitialized = false;
+    }
+  }
+
   // ── Auth ─────────────────────────────────────────────────────────────────
   Future<bool> signInWithGoogle() async {
     try {
       if (!firebaseReady) await _initFirebase();
       if (!firebaseReady) return false;
+      if (!googleInitialized) await _initGoogleSignIn();
+      if (!googleInitialized) return false;
 
-      final account = await _google.signInSilently();
-      if (account == null) return false; // user cancelled
+      final account = await _google.authenticate();
 
-      final auth = await account.authentication;
+      final auth = account.authentication;
       final credential = GoogleAuthProvider.credential(
         idToken: auth.idToken,
-        accessToken: auth.accessToken,
       );
       final result = await _auth!.signInWithCredential(credential);
       final u = result.user;
@@ -152,18 +163,18 @@ class AppServices extends ChangeNotifier {
   Future<void> _persistLocalTotals() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setInt(_kWins, totalWins);
-      await prefs.setInt(_kDraws, totalDraws);
-      await prefs.setInt(_kGames, totalGames);
+      await prefs.setInt(kWins, totalWins);
+      await prefs.setInt(kDraws, totalDraws);
+      await prefs.setInt(kGames, totalGames);
     } catch (_) {}
   }
 
   Future<void> _loadLocalTotals() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      totalWins = prefs.getInt(_kWins) ?? 0;
-      totalDraws = prefs.getInt(_kDraws) ?? 0;
-      totalGames = prefs.getInt(_kGames) ?? 0;
+      totalWins = prefs.getInt(kWins) ?? 0;
+      totalDraws = prefs.getInt(kDraws) ?? 0;
+      totalGames = prefs.getInt(kGames) ?? 0;
     } catch (_) {}
   }
 
@@ -177,10 +188,10 @@ class AppServices extends ChangeNotifier {
       final uid = _auth!.currentUser!.uid;
       _db!.collection('leaderboard').doc(uid).set(
         {
-          _kName: name,
-          _kPhoto: photoUrl,
-          _kWins: FieldValue.increment(wins),
-          _kGames: FieldValue.increment(games),
+          kName: name,
+          kPhoto: photoUrl,
+          kWins: FieldValue.increment(wins),
+          kGames: FieldValue.increment(games),
         },
         SetOptions(merge: true),
       );
@@ -194,22 +205,21 @@ class AppServices extends ChangeNotifier {
       try {
         final snap = await _db!
             .collection('leaderboard')
-            .orderBy(_kWins, descending: true)
+            .orderBy(kWins, descending: true)
             .limit(10)
             .get();
         return snap.docs
             .map(
               (d) => LeaderboardEntry(
-                name: (d.data()[_kName] as String?) ?? 'Player',
-                wins: (d.data()[_kWins] as num?)?.toInt() ?? 0,
-                games: (d.data()[_kGames] as num?)?.toInt() ?? 0,
-                photoUrl: (d.data()[_kPhoto] as String?) ?? '',
+                name: (d.data()[kName] as String?) ?? 'Player',
+                wins: (d.data()[kWins] as num?)?.toInt() ?? 0,
+                games: (d.data()[kGames] as num?)?.toInt() ?? 0,
+                photoUrl: (d.data()[kPhoto] as String?) ?? '',
               ),
             )
             .toList();
       } catch (_) {}
     }
-    // Local fallback: this device's totals.
     return [
       LeaderboardEntry(
         name: user?.name ?? 'You (this device)',

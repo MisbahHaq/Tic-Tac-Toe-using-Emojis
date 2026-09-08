@@ -78,31 +78,36 @@ class EmojiTile extends StatelessWidget {
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Opacity(
-              opacity: unlocked ? 1 : 0.35,
-              child: Text(
-                item.emoji,
-                style: TextStyle(
-                  fontSize: 34,
-                  color: kBlack,
-                  fontFamily: unlocked ? null : 'monospace',
-                  fontFeatures: unlocked ? const [] : const [],
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Opacity(
+                opacity: unlocked ? 1 : 0.35,
+                child: Text(
+                  item.emoji,
+                  style: TextStyle(
+                    fontSize: 30,
+                    color: kBlack,
+                  ),
                 ),
               ),
             ),
-            const SizedBox(height: 4),
-            Text(
-              unlocked
-                  ? (item.price == 0 ? item.name : item.emoji)
-                  : '🔒 ${item.price}💎',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                fontFamily: 'monospace',
-                fontSize: 9,
-                fontWeight: FontWeight.w700,
-                color: kBlack,
+            const SizedBox(height: 2),
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                unlocked
+                    ? (item.price == 0 ? item.name : item.emoji)
+                    : '🔒 ${item.price}💎',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontFamily: 'monospace',
+                  fontSize: 9,
+                  fontWeight: FontWeight.w700,
+                  color: kBlack,
+                ),
               ),
             ),
           ],

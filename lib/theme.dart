@@ -222,6 +222,8 @@ class AffordButton extends StatelessWidget {
       bg: affordable ? kCanary : kCoral,
       enabled: affordable && onPressed != null,
       onPressed: affordable ? onPressed : null,
+      fontSize: 14,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
     );
   }
 }

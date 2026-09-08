@@ -356,6 +356,7 @@ class _EmojiSelectionBodyState extends State<_EmojiSelectionBody> {
             const SizedBox(height: 16),
             BrutalCard(
               bg: _p1Color,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               child: _PickerHeader(
                 label: 'PLAYER 1',
                 selected: _p1,
@@ -363,21 +364,22 @@ class _EmojiSelectionBodyState extends State<_EmojiSelectionBody> {
                     setState(() => _p1 = _randomFree(widget.store)),
               ),
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 8),
             _EmojiGrid(
               store: widget.store,
               selected: _p1,
               onPick: (e) => setState(() => _p1 = e),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 14),
             BrutalCard(
               bg: vsAi ? kMint : _p2Color,
               shadow: vsAi ? kShadowNone : kShadow,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               child: vsAi
                   ? const _PickerHeader(
                       label: 'CPU OPPONENT',
                       selected: kAiEmoji,
-                      hint: 'NO STOCK NEEDED 🤖',
+                      hint: '🤖 NO STOCK',
                     )
                   : _PickerHeader(
                       label: 'PLAYER 2',
@@ -387,14 +389,14 @@ class _EmojiSelectionBodyState extends State<_EmojiSelectionBody> {
                     ),
             ),
             if (!vsAi) ...[
-              const SizedBox(height: 10),
+              const SizedBox(height: 8),
               _EmojiGrid(
                 store: widget.store,
                 selected: _p2,
                 onPick: (e) => setState(() => _p2 = e),
               ),
             ],
-            const SizedBox(height: 24),
+            const SizedBox(height: 18),
             BrutalButton(
               label: widget.mode.label,
               onPressed: () => pushBrutal(
@@ -450,35 +452,43 @@ class _PickerHeader extends StatelessWidget {
           ),
         ),
         if (hint != null)
-          Text(
-            hint!,
-            style: const TextStyle(
-              fontFamily: 'monospace',
-              fontSize: 10,
-              fontWeight: FontWeight.w700,
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              hint!,
+              style: const TextStyle(
+                fontFamily: 'monospace',
+                fontSize: 10,
+                fontWeight: FontWeight.w700,
+              ),
             ),
           )
         else
-          Row(
-            children: [
-              Text(selected, style: const TextStyle(fontSize: 26)),
-              const SizedBox(width: 8),
-              GestureDetector(
-                onTap: onRandom,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    border: Border.all(color: kBlack, width: 2),
-                  ),
-                  child: const Text(
-                    '🎲',
-                    style: TextStyle(fontSize: 16),
+          Flexible(
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                FittedBox(
+                  child: Text(selected, style: const TextStyle(fontSize: 24)),
+                ),
+                const SizedBox(width: 6),
+                GestureDetector(
+                  onTap: onRandom,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 6, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      border: Border.all(color: kBlack, width: 2),
+                    ),
+                    child: const Text(
+                      '🎲',
+                      style: TextStyle(fontSize: 14),
+                    ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
       ],
     );
@@ -728,26 +738,32 @@ class _GamePageState extends State<GamePage> {
                 const SizedBox(height: 2),
               ],
               const SizedBox(height: 16),
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  BrutalButton(
-                    label: 'PLAY AGAIN',
-                    onPressed: () {
-                      Navigator.pop(context);
-                      _reset();
-                    },
-                  ),
-                  const SizedBox(width: 12),
-                  BrutalButton(
-                    label: 'MENU',
-                    bg: Colors.white,
-                    onPressed: () {
-                      Navigator.pop(context);
-                      Navigator.pop(context);
-                    },
-                  ),
-                ],
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    BrutalButton(
+                      label: 'PLAY AGAIN',
+                      onPressed: () {
+                        Navigator.pop(context);
+                        _reset();
+                      },
+                    ),
+                    const SizedBox(width: 10),
+                    BrutalButton(
+                      label: 'MENU',
+                      bg: Colors.white,
+                      fontSize: 15,
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 20, vertical: 14),
+                      onPressed: () {
+                        Navigator.pop(context);
+                        Navigator.pop(context);
+                      },
+                    ),
+                  ],
+                ),
               ),
             ],
           ),
@@ -847,11 +863,14 @@ class _TurnStrip extends StatelessWidget {
     return BrutalCard(
       bg: active ? kMint : kCoral,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-child: Row(
-          children: [
-            Text(p1, style: const TextStyle(fontSize: 28)),
-            const SizedBox(width: 12),
-            Expanded(
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          FittedBox(child: Text(p1, style: const TextStyle(fontSize: 26))),
+          const SizedBox(width: 8),
+          Expanded(
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
               child: Text(
                 label,
                 style: const TextStyle(
@@ -862,9 +881,10 @@ child: Row(
                 ),
               ),
             ),
-            Text(p2, style: const TextStyle(fontSize: 28)),
-          ],
-        ),
+          ),
+          const SizedBox(width: 8),
+          FittedBox(child: Text(p2, style: const TextStyle(fontSize: 26))),
+        ],
       ),
     );
   }
@@ -896,13 +916,14 @@ class _Board extends StatelessWidget {
           final mark = board[i];
           final isWin = winningLine?.contains(i) ?? false;
           return GestureDetector(
+            key: ValueKey('cell-$i'),
             onTap: () => onTap(i),
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 120),
               decoration: BoxDecoration(
                 color: isWin
                     ? kCanary
-                    : gradientColor(mark!),
+                    : (mark == null ? Colors.white : gradientColor(mark)),
                 border: Border.all(color: kBlack, width: 2),
                 boxShadow: const [
                   BoxShadow(color: kBlack, offset: Offset(4, 4)),
@@ -1006,9 +1027,10 @@ class StorePage extends StatelessWidget {
                         itemCount: kCatalog.length,
                         gridDelegate:
                             const SliverGridDelegateWithMaxCrossAxisExtent(
-                          maxCrossAxisExtent: 130,
-                          mainAxisSpacing: 12,
-                          crossAxisSpacing: 12,
+                          maxCrossAxisExtent: 150,
+                          mainAxisSpacing: 10,
+                          crossAxisSpacing: 10,
+                          childAspectRatio: 0.78,
                         ),
                         itemBuilder: (context, i) {
                           final item = kCatalog[i];
@@ -1051,24 +1073,30 @@ class _StoreTile extends StatelessWidget {
     return BrutalCard(
       bg: unlocked ? kMint : Colors.white,
       shadow: kShadowSm,
-      padding: const EdgeInsets.all(10),
+      padding: const EdgeInsets.all(8),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Text(item.emoji, style: const TextStyle(fontSize: 38)),
-          const SizedBox(height: 6),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(item.emoji, style: const TextStyle(fontSize: 34)),
+          ),
+          const SizedBox(height: 4),
           FittedBox(
             fit: BoxFit.scaleDown,
             child: Text(
               item.name.toUpperCase(),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
               style: const TextStyle(
                 fontFamily: 'monospace',
-                fontSize: 11,
+                fontSize: 10,
                 fontWeight: FontWeight.w900,
               ),
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 6),
           if (unlocked)
             const Text(
               'OWNED ✓',
