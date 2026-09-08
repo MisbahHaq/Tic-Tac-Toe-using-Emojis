@@ -1,0 +1,22 @@
+# Netlify deploy config for toemoji (Flutter web).
+# Build command installs the Flutter SDK on Netlify's build image and
+# produces the static site in build/web (the publish directory).
+[build]
+  command = "bash netlify-build.sh"
+  publish = "build/web"
+
+# Flutter release channel/tag used by netlify-build.sh.
+[build.environment]
+  FLUTTER_VERSION = "stable"
+
+# SPA fallback: let Flutter's app handle client-side routes.
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+# Hashed build assets are safe to cache forever.
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
