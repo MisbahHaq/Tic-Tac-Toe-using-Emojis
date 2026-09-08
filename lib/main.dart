@@ -1,260 +1,18 @@
+import 'dart:async';
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
-// ────────────────────────────────────────────────────────────────────────────
-//  Neo-Brutalist design system
-// ────────────────────────────────────────────────────────────────────────────
-const Color kBg = Color(0xFFFAF7F2); // warm off-white canvas
-const Color kInk = Color(0xFF171717); // high-contrast dark text
-const Color kBlack = Color(0xFF000000);
-
-// Accent palette
-const Color kCanary = Color(0xFFFDE047); // primary CTA
-const Color kCanarySoft = Color(0xFFFEF08A);
-const Color kLavender = Color(0xFFE9D5FF);
-const Color kMint = Color(0xFFA7F3D0);
-const Color kCoral = Color(0xFFFECDD3);
-const Color kSky = Color(0xFFBAE6FD);
-
-// Hard-edge offset shadows (no blur)
-const List<BoxShadow> kShadow = [
-  BoxShadow(color: kBlack, offset: Offset(4, 4)),
-];
-const List<BoxShadow> kShadowSm = [
-  BoxShadow(color: kBlack, offset: Offset(3, 3)),
-];
-const List<BoxShadow> kShadowLg = [
-  BoxShadow(color: kBlack, offset: Offset(6, 6)),
-];
-const List<BoxShadow> kShadowNone = [BoxShadow(color: Colors.transparent)];
+import 'data.dart';
+import 'services.dart';
+import 'theme.dart';
+import 'widgets.dart';
 
 void main() {
+  WidgetsFlutterBinding.ensureInitialized();
   runApp(const EmojiTicTacToe());
 }
 
-// ────────────────────────────────────────────────────────────────────────────
-//  Emoji catalog + GameStore (diamond currency)
-// ────────────────────────────────────────────────────────────────────────────
-class EmojiItem {
-  final String emoji;
-  final String name;
-  final int price; // 0 = free / unlocked by default
-  const EmojiItem(this.emoji, this.name, this.price);
-}
-
-const List<EmojiItem> kCatalog = [
-  // Free (unlocked by default)
-  EmojiItem('🐶', 'Dog', 0),
-  EmojiItem('😸', 'Cat', 0),
-  EmojiItem('🐼', 'Panda', 0),
-  EmojiItem('🐵', 'Monkey', 0),
-  EmojiItem('🦊', 'Fox', 0),
-  EmojiItem('🐻', 'Bear', 0),
-  EmojiItem('🐨', 'Koala', 0),
-  EmojiItem('🐯', 'Tiger', 0),
-  EmojiItem('🐸', 'Frog', 0),
-  EmojiItem('🦁', 'Lion', 0),
-  EmojiItem('🐮', 'Cow', 0),
-  EmojiItem('🦄', 'Unicorn', 0),
-  // Premium (purchasable with diamonds)
-  EmojiItem('🐙', 'Octopus', 6),
-  EmojiItem('🐢', 'Turtle', 6),
-  EmojiItem('🖐', 'Hand', 6),
-  EmojiItem('🤝', 'Handshake', 6),
-  EmojiItem('👏', 'Clap', 6),
-  EmojiItem('🙌', 'Cheers', 6),
-  EmojiItem('🍭', 'Lollipop', 6),
-  EmojiItem('🐝', 'Bee', 8),
-  EmojiItem('🦋', 'Butterfly', 8),
-  EmojiItem('🦴', 'Bone', 8),
-  EmojiItem('🦍', 'Gorilla', 12),
-  EmojiItem('🐳', 'Whale', 12),
-  EmojiItem('🐍', 'Snake', 12),
-  EmojiItem('🤡', 'Clown', 15),
-  EmojiItem('👽', 'Alien', 15),
-];
-
-const int kWinReward = 5; // diamonds earned per win
-const int kStartingDiamonds = 6;
-
-class GameStore extends ChangeNotifier {
-  int _diamonds = kStartingDiamonds;
-  final Set<String> _unlocked = {};
-
-  GameStore() {
-    for (final item in kCatalog) {
-      if (item.price == 0) _unlocked.add(item.emoji);
-    }
-  }
-
-  int get diamonds => _diamonds;
-  Set<String> get unlocked => Set.unmodifiable(_unlocked);
-
-  bool isUnlocked(String emoji) => _unlocked.contains(emoji);
-
-  int priceOf(String emoji) {
-    for (final item in kCatalog) {
-      if (item.emoji == emoji) return item.price;
-    }
-    return 0;
-  }
-
-  void addDiamonds(int amount) {
-    _diamonds += amount;
-    notifyListeners();
-  }
-
-  bool buy(String emoji) {
-    final price = priceOf(emoji);
-    if (price == 0 || _unlocked.contains(emoji) || _diamonds < price) {
-      return false;
-    }
-    _diamonds -= price;
-    _unlocked.add(emoji);
-    notifyListeners();
-    return true;
-  }
-}
-
-// ────────────────────────────────────────────────────────────────────────────
-//  Reusable brutalist pieces
-// ────────────────────────────────────────────────────────────────────────────
-class BrutalCard extends StatelessWidget {
-  final Widget child;
-  final Color bg;
-  final EdgeInsetsGeometry padding;
-  final List<BoxShadow>? shadow;
-  const BrutalCard({
-    super.key,
-    required this.child,
-    this.bg = Colors.white,
-    this.padding = const EdgeInsets.all(12),
-    this.shadow = kShadow,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: padding,
-      decoration: BoxDecoration(
-        color: bg,
-        border: Border.all(color: kBlack, width: 2),
-        boxShadow: shadow,
-      ),
-      child: child,
-    );
-  }
-}
-
-class BrutalButton extends StatefulWidget {
-  final String label;
-  final VoidCallback? onPressed;
-  final Color bg;
-  final bool enabled;
-  const BrutalButton({
-    super.key,
-    required this.label,
-    required this.onPressed,
-    this.bg = kCanary,
-    this.enabled = true,
-  });
-
-  @override
-  State<BrutalButton> createState() => _BrutalButtonState();
-}
-
-class _BrutalButtonState extends State<BrutalButton> {
-  bool _pressed = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final usable = widget.enabled && widget.onPressed != null;
-    return GestureDetector(
-      onTapDown: usable ? (_) => setState(() => _pressed = true) : null,
-      onTapUp: usable ? (_) => setState(() => _pressed = false) : null,
-      onTapCancel: () => setState(() => _pressed = false),
-      onTap: usable ? widget.onPressed : null,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 80),
-        padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 16),
-        transform: _pressed
-            ? Matrix4.translationValues(2, 2, 0)
-            : Matrix4.identity(),
-        decoration: BoxDecoration(
-          color: usable ? widget.bg : const Color(0xFFE5E5E5),
-          border: Border.all(color: kBlack, width: 2),
-          boxShadow: _pressed || !usable
-              ? kShadowNone
-              : const [BoxShadow(color: kBlack, offset: Offset(4, 4))],
-        ),
-        child: Text(
-          widget.label,
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            fontFamily: 'monospace',
-            fontSize: 18,
-            fontWeight: FontWeight.w900,
-            letterSpacing: 1.5,
-            color: kBlack,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class DiamondBadge extends StatelessWidget {
-  final GameStore store;
-  const DiamondBadge({super.key, required this.store});
-
-  @override
-  Widget build(BuildContext context) {
-    return ListenableBuilder(
-      listenable: store,
-      builder: (context, _) {
-        return BrutalCard(
-          shadow: kShadowSm,
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text('💎', style: TextStyle(fontSize: 18)),
-              const SizedBox(width: 6),
-              Text(
-                '${store.diamonds}',
-                style: const TextStyle(
-                  fontFamily: 'monospace',
-                  fontSize: 18,
-                  fontWeight: FontWeight.w900,
-                  color: kBlack,
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-}
-
-Color _gradientColor(String emoji) {
-  final code = emoji.codeUnitAt(0);
-  switch (code % 6) {
-    case 0:
-      return kLavender;
-    case 1:
-      return kMint;
-    case 2:
-      return kCoral;
-    case 3:
-      return kSky;
-    case 4:
-      return kCanarySoft;
-    default:
-      return const Color(0xFFE5E5E5);
-  }
-}
-
-// ────────────────────────────────────────────────────────────────────────────
 class EmojiTicTacToe extends StatefulWidget {
   const EmojiTicTacToe({super.key});
 
@@ -263,810 +21,73 @@ class EmojiTicTacToe extends StatefulWidget {
 }
 
 class _EmojiTicTacToeState extends State<EmojiTicTacToe> {
-  final GameStore _store = GameStore();
-
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      title: 'Emoji Tic-Tac-Toe',
-      theme: ThemeData(
-        useMaterial3: true,
-        scaffoldBackgroundColor: kBg,
-        fontFamily: 'Gilroy',
-        colorScheme: const ColorScheme.light(
-          primary: kBlack,
-          surface: kBg,
-        ),
-        appBarTheme: const AppBarTheme(
-          backgroundColor: kBg,
-          elevation: 0,
-        ),
-        dividerTheme: const DividerThemeData(color: kBlack, thickness: 2),
-      ),
-      home: OnboardingPage(store: _store),
-    );
-  }
-}
-
-// ────────────────────────────────────────────────────────────────────────────
-//  Onboarding page
-// ────────────────────────────────────────────────────────────────────────────
-class OnboardingPage extends StatefulWidget {
-  final GameStore store;
-  const OnboardingPage({super.key, required this.store});
-
-  @override
-  State<OnboardingPage> createState() => _OnboardingPageState();
-}
-
-class _OnboardingPageState extends State<OnboardingPage>
-    with TickerProviderStateMixin {
-  late AnimationController _titleController;
-  late AnimationController _buttonController;
-  late Animation<double> _titleAnimation;
-  late Animation<double> _buttonAnimation;
+  late final AppServices _services;
+  late final GameStore _store;
 
   @override
   void initState() {
     super.initState();
-    _titleController = AnimationController(
-      duration: const Duration(milliseconds: 700),
-      vsync: this,
-    );
-    _buttonController = AnimationController(
-      duration: const Duration(milliseconds: 400),
-      vsync: this,
-    );
-    _titleAnimation = CurvedAnimation(
-      parent: _titleController,
-      curve: Curves.easeOutBack,
-    );
-    _buttonAnimation = CurvedAnimation(
-      parent: _buttonController,
-      curve: Curves.easeOut,
-    );
-    _startAnimations();
-  }
-
-  void _startAnimations() async {
-    await Future<void>.delayed(const Duration(milliseconds: 200));
-    _titleController.forward();
-    await Future<void>.delayed(const Duration(milliseconds: 350));
-    _buttonController.forward();
+    _services = AppServices();
+    _store = GameStore(_services);
+    _services.init();
   }
 
   @override
   void dispose() {
-    _titleController.dispose();
-    _buttonController.dispose();
+    _store.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const BrutalCard(
-                    shadow: kShadowSm,
-                    padding: EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                    child: Text(
-                      '🎮 EMOJI\nTIC-TAC-TOE',
-                      style: TextStyle(
-                        fontSize: 14,
-                        height: 1.2,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: 1,
-                        color: kBlack,
-                      ),
-                    ),
-                  ),
-                  DiamondBadge(store: widget.store),
-                ],
-              ),
-              Expanded(
-                child: Center(
-                  child: SingleChildScrollView(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        ScaleTransition(
-                          scale: _titleAnimation,
-                          child: Column(
-                            children: [
-                              _letter('T'),
-                              _letter('I'),
-                              _letter('C'),
-                              const SizedBox(height: 14),
-                              Container(
-                                height: 6,
-                                width: 120,
-                                color: kCanary,
-                              ),
-                              const SizedBox(height: 4),
-                              Container(height: 4, width: 90, color: kBlack),
-                              const SizedBox(height: 14),
-                              _letter('T'),
-                              _letter('A'),
-                              _letter('C'),
-                              const SizedBox(height: 14),
-                              _letter('T'),
-                              _letter('O'),
-                              _letter('E'),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 40),
-                        ScaleTransition(
-                          scale: _buttonAnimation,
-                          child: BrutalButton(
-                            label: 'START GAME',
-                            bg: kCoral,
-                            onPressed: () {
-                              Navigator.push(
-                                context,
-                                PageRouteBuilder(
-                                  pageBuilder: (context, a, s) =>
-                                      EmojiSelectionPage(store: widget.store),
-                                  transitionsBuilder: (context, a, s, child) =>
-                                      SlideTransition(
-                                        position: Tween<Offset>(
-                                          begin: const Offset(1, 0),
-                                          end: Offset.zero,
-                                        ).animate(a),
-                                        child: child,
-                                      ),
-                                ),
-                              );
-                            },
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
+    return MaterialApp(
+      title: 'Emoji Tic-Tac-Toe',
+      debugShowCheckedModeBanner: false,
+      theme: ThemeData(
+        useMaterial3: true,
+        fontFamily: 'monospace',
+        scaffoldBackgroundColor: kBg,
+        visualDensity: VisualDensity.compact,
       ),
-    );
-  }
-
-  Widget _letter(String ch) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 6),
-      padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 10),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border.all(color: kBlack, width: 3),
-        boxShadow: kShadow,
-      ),
-      child: Text(
-        ch,
-        style: const TextStyle(
-          fontFamily: 'monospace',
-          fontSize: 72,
-          height: 1,
-          fontWeight: FontWeight.w900,
-          color: kInk,
-        ),
-      ),
+      home: HomePage(store: _store),
     );
   }
 }
 
 // ────────────────────────────────────────────────────────────────────────────
-//  Emoji selection page
+//  Home / onboarding
 // ────────────────────────────────────────────────────────────────────────────
-class EmojiSelectionPage extends StatefulWidget {
+class HomePage extends StatefulWidget {
   final GameStore store;
-  const EmojiSelectionPage({super.key, required this.store});
+  const HomePage({super.key, required this.store});
 
   @override
-  State<EmojiSelectionPage> createState() => _EmojiSelectionPageState();
+  State<HomePage> createState() => _HomePageState();
 }
 
-class _EmojiSelectionPageState extends State<EmojiSelectionPage> {
-  String? player1Emoji;
-  String? player2Emoji;
-
-  List<EmojiItem> get _catalog => kCatalog;
-
-  void _startGame() {
-    if (player1Emoji != null &&
-        player2Emoji != null &&
-        player1Emoji != player2Emoji) {
-      Navigator.push(
-        context,
-        PageRouteBuilder(
-          pageBuilder:
-              (context, animation, secondaryAnimation) => TicTacToePage(
-                store: widget.store,
-                player1Emoji: player1Emoji!,
-                player2Emoji: player2Emoji!,
-              ),
-          transitionsBuilder: (context, animation, secondaryAnimation, child) {
-            return SlideTransition(
-              position: Tween<Offset>(
-                begin: const Offset(1, 0),
-                end: Offset.zero,
-              ).animate(animation),
-              child: child,
-            );
-          },
-        ),
-      );
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Pick two DIFFERENT emojis!'),
-          backgroundColor: kBlack,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(0),
-            side: const BorderSide(color: kBlack, width: 2),
-          ),
-        ),
-      );
-    }
-  }
-
-  void _onEmojiTap(String emoji) {
-    final price = widget.store.priceOf(emoji);
-    if (widget.store.isUnlocked(emoji) || price == 0) {
-      return; // handled as selection
-    }
-    _promptBuy(context, emoji);
-  }
-
-  void _promptBuy(BuildContext context, String emoji) {
-    final price = widget.store.priceOf(emoji);
-    final affordable = widget.store.diamonds >= price;
-    showDialog(
-      context: context,
-      builder: (context) => Dialog(
-        backgroundColor: kBg,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(0),
-          side: const BorderSide(color: kBlack, width: 2),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(14),
-              color: kCanary,
-              child: const Text(
-                '🔒 LOCKED EMOJI',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontFamily: 'monospace',
-                  fontSize: 16,
-                  fontWeight: FontWeight.w900,
-                  color: kBlack,
-                ),
-              ),
-            ),
-            const Padding(
-              padding: EdgeInsets.all(20),
-              child: Text(
-                'Win games to earn 💎 diamonds,\nthen use them to unlock new emojis!',
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 15, color: kInk),
-              ),
-            ),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(emoji, style: const TextStyle(fontSize: 44)),
-                const SizedBox(width: 10),
-                Text(
-                  '💎 $price',
-                  style: const TextStyle(
-                    fontFamily: 'monospace',
-                    fontSize: 20,
-                    fontWeight: FontWeight.w900,
-                    color: kBlack,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-              child: AffordButton(
-                affordable: affordable,
-                label: affordable ? 'BUY FOR 💎 $price' : 'NOT ENOUGH 💎',
-                onPressed: affordable
-                    ? () {
-                        Navigator.pop(context);
-                        if (widget.store.buy(emoji)) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text('$emoji unlocked! 🎉'),
-                              backgroundColor: kBlack,
-                              behavior: SnackBarBehavior.floating,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(0),
-                                side: const BorderSide(
-                                  color: kBlack,
-                                  width: 2,
-                                ),
-                              ),
-                            ),
-                          );
-                        }
-                      }
-                    : null,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildEmojiPicker({
-    required String title,
-    required int playerNum,
-    required String? selectedEmoji,
-    required ValueChanged<String> onSelected,
-  }) {
-    final accent = playerNum == 1 ? kSky : kMint;
-    return BrutalCard(
-      bg: const Color(0xFFE8E8E8),
-      padding: const EdgeInsets.all(14),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-            color: accent,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: 1.2,
-                    color: kBlack,
-                  ),
-                ),
-                if (selectedEmoji != null)
-                  Container(
-                    padding: const EdgeInsets.all(4),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      border: Border.all(color: kBlack, width: 2),
-                    ),
-                    child: Text(
-                      selectedEmoji,
-                      style: const TextStyle(fontSize: 24),
-                    ),
-                  ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 14),
-          GridView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 6,
-              crossAxisSpacing: 10,
-              mainAxisSpacing: 10,
-            ),
-            itemCount: _catalog.length,
-            itemBuilder: (context, index) {
-              final item = _catalog[index];
-              final emoji = item.emoji;
-              final isUnlocked =
-                  widget.store.isUnlocked(emoji) || item.price == 0;
-              final isSelected = selectedEmoji == emoji;
-              final isUsedByOther =
-                  (player1Emoji == emoji || player2Emoji == emoji) &&
-                  !isSelected;
-
-              return ListenableBuilder(
-                listenable: widget.store,
-                builder: (context, _) => _EmojiCell(
-                  item: item,
-                  unlocked: isUnlocked,
-                  selected: isSelected,
-                  disabled: !isUnlocked || isUsedByOther,
-                  onTap: () {
-                    if (!isUnlocked) {
-                      _onEmojiTap(emoji);
-                    } else if (!isUsedByOther) {
-                      onSelected(emoji);
-                    }
-                  },
-                ),
-              );
-            },
-          ),
-        ],
-      ),
-    );
-  }
+class _HomePageState extends State<HomePage> {
+  GameMode _mode = GameMode.twoPlayer;
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: SafeArea(
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                children: [
-                  Row(
-                    children: [
-                      _BackButton(onPressed: () => Navigator.pop(context)),
-                      const Expanded(
-                        child: Text(
-                          'CHOOSE YOUR EMOJIS',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontFamily: 'monospace',
-                            fontSize: 18,
-                            fontWeight: FontWeight.w900,
-                            letterSpacing: 1.5,
-                            color: kBlack,
-                          ),
-                        ),
-                      ),
-                      DiamondBadge(store: widget.store),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  const Text(
-                    '💎 WIN TO EARN • TAP 🔒 TO BUY',
-                    style: TextStyle(
-                      fontFamily: 'monospace',
-                      fontSize: 12,
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: 1,
-                      color: kInk,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: Column(
-                  children: [
-                    _buildEmojiPicker(
-                      title: 'PLAYER 1',
-                      playerNum: 1,
-                      selectedEmoji: player1Emoji,
-                      onSelected: (e) => setState(() => player1Emoji = e),
-                    ),
-                    const SizedBox(height: 20),
-                    _buildEmojiPicker(
-                      title: 'PLAYER 2',
-                      playerNum: 2,
-                      selectedEmoji: player2Emoji,
-                      onSelected: (e) => setState(() => player2Emoji = e),
-                    ),
-                    const SizedBox(height: 30),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        BrutalButton(
-                          label: '🛒 STORE',
-                          bg: kSky,
-                          onPressed: () {
-                            Navigator.push(
-                              context,
-                              PageRouteBuilder(
-                                pageBuilder: (context, a, s) =>
-                                    StorePage(store: widget.store),
-                                transitionsBuilder:
-                                    (context, a, s, child) => SlideTransition(
-                                      position: Tween<Offset>(
-                                        begin: const Offset(1, 0),
-                                        end: Offset.zero,
-                                      ).animate(a),
-                                      child: child,
-                                    ),
-                              ),
-                            );
-                          },
-                        ),
-                        const SizedBox(width: 16),
-                        BrutalButton(
-                          label: 'START GAME',
-                          bg: kCanary,
-                          enabled:
-                              player1Emoji != null &&
-                              player2Emoji != null &&
-                              player1Emoji != player2Emoji,
-                          onPressed: _startGame,
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 40),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _EmojiCell extends StatefulWidget {
-  final EmojiItem item;
-  final bool unlocked;
-  final bool selected;
-  final bool disabled;
-  final VoidCallback onTap;
-  const _EmojiCell({
-    required this.item,
-    required this.unlocked,
-    required this.selected,
-    required this.disabled,
-    required this.onTap,
-  });
-
-  @override
-  State<_EmojiCell> createState() => _EmojiCellState();
-}
-
-class _EmojiCellState extends State<_EmojiCell> {
-  bool _pressed = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final usable = !widget.disabled;
-    final bg = widget.selected ? kLavender : Colors.white;
-    return GestureDetector(
-      onTapDown: usable ? (_) => setState(() => _pressed = true) : null,
-      onTapUp: usable ? (_) => setState(() => _pressed = false) : null,
-      onTapCancel: () => setState(() => _pressed = false),
-      onTap: usable ? widget.onTap : null,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 80),
-        transform: _pressed
-            ? Matrix4.translationValues(2, 2, 0)
-            : Matrix4.identity(),
-        decoration: BoxDecoration(
-          color: widget.unlocked
-              ? (widget.disabled
-                    ? const Color(0xFFDDDDDD)
-                    : bg)
-              : const Color(0xFFE8E8E8),
-          border: Border.all(
-            color: kBlack,
-            width: widget.selected ? 3 : 2,
-          ),
-          boxShadow: (_pressed || widget.disabled) ? kShadowNone : kShadowSm,
-        ),
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            Center(
-              child: Opacity(
-                opacity: widget.disabled ? 0.4 : 1,
-                child: Text(
-                  widget.item.emoji,
-                  style: const TextStyle(fontSize: 26),
-                ),
-              ),
-            ),
-            if (!widget.unlocked)
-              Positioned(
-                bottom: 2,
-                right: 3,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 4,
-                    vertical: 1,
-                  ),
-                  color: kBlack,
-                  child: Text(
-                    '💎${widget.item.price}',
-                    style: const TextStyle(
-                      fontFamily: 'monospace',
-                      fontSize: 9,
-                      fontWeight: FontWeight.w900,
-                      color: Colors.white,
-                    ),
-                  ),
-                ),
-              ),
-            if (!widget.unlocked)
-              const Center(
-                child: Text('🔒', style: TextStyle(fontSize: 20)),
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ────────────────────────────────────────────────────────────────────────────
-//  Store page (buy emojis)
-// ────────────────────────────────────────────────────────────────────────────
-class StorePage extends StatelessWidget {
-  final GameStore store;
-  const StorePage({super.key, required this.store});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: SafeArea(
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.all(20),
-              child: Row(
-                children: [
-                  _BackButton(onPressed: () => Navigator.pop(context)),
-                  const Expanded(
-                    child: Text(
-                      'EMOJI STORE',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontFamily: 'monospace',
-                        fontSize: 18,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: 1.5,
-                        color: kBlack,
-                      ),
-                    ),
-                  ),
-                  DiamondBadge(store: store),
-                ],
-              ),
-            ),
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 20),
-              child: Text(
-                '💎 WIN GAMES TO EARN • SPEND TO UNLOCK',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontFamily: 'monospace',
-                  fontSize: 12,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: 1,
-                  color: kInk,
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            Expanded(
-              child: GridView.builder(
-                padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 2,
-                  childAspectRatio: 1.05,
-                  crossAxisSpacing: 16,
-                  mainAxisSpacing: 16,
-                ),
-                itemCount: kCatalog.length,
-                itemBuilder: (context, index) {
-                  final item = kCatalog[index];
-                  return _StoreItemCard(store: store, item: item);
-                },
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _StoreItemCard extends StatelessWidget {
-  final GameStore store;
-  final EmojiItem item;
-  const _StoreItemCard({required this.store, required this.item});
-
-  @override
-  Widget build(BuildContext context) {
-    return ListenableBuilder(
-      listenable: store,
+    return AnimatedBuilder(
+      animation: widget.store,
       builder: (context, _) {
-        final owned = store.isUnlocked(item.emoji) || item.price == 0;
-        final affordable = store.diamonds >= item.price;
-        final bg = owned ? kMint : (affordable ? kCanarySoft : kCoral);
-
-        return BrutalCard(
-          bg: bg,
-          padding: const EdgeInsets.all(12),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                item.emoji,
-                style: const TextStyle(fontSize: 40),
-              ),
-              Text(
-                item.name.toUpperCase(),
-                style: const TextStyle(
-                  fontWeight: FontWeight.w900,
-                  fontSize: 13,
-                  letterSpacing: 1,
-                  color: kBlack,
-                ),
-              ),
-              if (owned)
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 5,
-                  ),
-                  color: kBlack,
-                  child: const Text(
-                    'OWNED ✓',
-                    style: TextStyle(
-                      fontFamily: 'monospace',
-                      fontSize: 12,
-                      fontWeight: FontWeight.w900,
-                      color: Colors.white,
-                    ),
-                  ),
-                )
-              else
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 5,
-                  ),
-                  color: Colors.white,
-                  child: Text(
-                    '💎 ${item.price}',
-                    style: const TextStyle(
-                      fontFamily: 'monospace',
-                      fontSize: 14,
-                      fontWeight: FontWeight.w900,
-                      color: kBlack,
-                    ),
+        return Scaffold(
+          body: SafeArea(
+            child: Center(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(20),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 520),
+                  child: _HomeContent(
+                    store: widget.store,
+                    mode: _mode,
+                    onModeChanged: (m) => setState(() => _mode = m),
                   ),
                 ),
-              SizedBox(
-                width: double.infinity,
-                child: BrutalButton(
-                  label: owned ? 'OWNED' : (affordable ? 'BUY' : 'NO 💎'),
-                  bg: owned ? kMint : kCanary,
-                  enabled: !owned && affordable,
-                  onPressed: () {
-                    if (store.buy(item.emoji)) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text('${item.emoji} unlocked! 🎉'),
-                          backgroundColor: kBlack,
-                          behavior: SnackBarBehavior.floating,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(0),
-                            side: const BorderSide(color: kBlack, width: 2),
-                          ),
-                        ),
-                      );
-                    }
-                  },
-                ),
               ),
-            ],
+            ),
           ),
         );
       },
@@ -1074,186 +95,662 @@ class _StoreItemCard extends StatelessWidget {
   }
 }
 
-// ────────────────────────────────────────────────────────────────────────────
-//  Tic-Tac-Toe game page
-// ────────────────────────────────────────────────────────────────────────────
-class TicTacToePage extends StatefulWidget {
+class _HomeContent extends StatelessWidget {
   final GameStore store;
-  final String player1Emoji;
-  final String player2Emoji;
-
-  const TicTacToePage({
-    super.key,
+  final GameMode mode;
+  final ValueChanged<GameMode> onModeChanged;
+  const _HomeContent({
     required this.store,
-    required this.player1Emoji,
-    required this.player2Emoji,
+    required this.mode,
+    required this.onModeChanged,
   });
 
   @override
-  State<TicTacToePage> createState() => _TicTacToePageState();
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        HeaderRow(
+          store: store,
+          onStore: () => pushBrutal(context, StorePage(store: store)),
+          onLeaderboard: () =>
+              pushBrutal(context, LeaderboardPage(store: store)),
+        ),
+        const SizedBox(height: 32),
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          child: const Text(
+            'EMOJI\nTIC·TAC·TOE',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontFamily: 'monospace',
+              fontSize: 64,
+              height: 0.95,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 3,
+              color: kBlack,
+            ),
+          ),
+        ),
+        const SizedBox(height: 8),
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          child: const Text(
+            '🐶  VS  🐼',
+            style: TextStyle(fontSize: 44),
+          ),
+        ),
+        const SizedBox(height: 28),
+        BrutalCard(
+          bg: kCanarySoft,
+          padding: const EdgeInsets.all(16),
+          child: const Text(
+            'WINS EARN 💎 DIAMONDS. UNLOCK NEW EMOJI IN THE STORE. '
+            'SIGN IN TO CHASE THE ONLINE LEADERBOARD.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontFamily: 'monospace',
+              fontSize: 13,
+              height: 1.4,
+              fontWeight: FontWeight.w700,
+              color: kBlack,
+            ),
+          ),
+        ),
+        const SizedBox(height: 24),
+        const SectionDivider(),
+        const SizedBox(height: 16),
+        const Text(
+          'choose mode',
+          style: TextStyle(
+            fontFamily: 'monospace',
+            fontSize: 12,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 2,
+          ),
+        ),
+        const SizedBox(height: 10),
+        for (final m in GameMode.values) ...[
+          _ModeCard(
+            label: m.label,
+            active: mode == m,
+            onTap: () => onModeChanged(m),
+          ),
+          const SizedBox(height: 10),
+        ],
+        const SizedBox(height: 8),
+        BrutalButton(
+          label: 'PLAY ▶',
+          bg: kCanary,
+          onPressed: () =>
+              pushBrutal(context, EmojiSelectionPage(store: store, mode: mode)),
+        ),
+        const SizedBox(height: 16),
+        _SignInChip(store: store),
+      ],
+    );
+  }
 }
 
-class _TicTacToePageState extends State<TicTacToePage>
-    with TickerProviderStateMixin {
-  late List<String> board;
-  late String currentPlayer;
-  String winner = '';
-  bool isDraw = false;
-  Map<String, int> scores = {'player1': 0, 'player2': 0, 'draws': 0};
-
-  late AnimationController _boardController;
-  late AnimationController _winnerController;
-  late Animation<double> _boardAnimation;
-  late Animation<double> _winnerAnimation;
+class _ModeCard extends StatelessWidget {
+  final String label;
+  final bool active;
+  final VoidCallback onTap;
+  const _ModeCard({required this.label, required this.active, required this.onTap});
 
   @override
-  void initState() {
-    super.initState();
-    board = List.filled(9, '');
-    currentPlayer = widget.player1Emoji;
-
-    _boardController = AnimationController(
-      duration: const Duration(milliseconds: 600),
-      vsync: this,
-    );
-    _winnerController = AnimationController(
-      duration: const Duration(milliseconds: 400),
-      vsync: this,
-    );
-    _boardAnimation = CurvedAnimation(
-      parent: _boardController,
-      curve: Curves.easeOutBack,
-    );
-    _winnerAnimation = CurvedAnimation(
-      parent: _winnerController,
-      curve: Curves.easeOut,
-    );
-    _boardController.forward();
-  }
-
-  @override
-  void dispose() {
-    _boardController.dispose();
-    _winnerController.dispose();
-    super.dispose();
-  }
-
-  void _handleTap(int index) {
-    if (board[index] == '' && winner == '' && !isDraw) {
-      setState(() {
-        board[index] = currentPlayer;
-        if (_checkWinner(currentPlayer)) {
-          winner = currentPlayer;
-          final key =
-              currentPlayer == widget.player1Emoji ? 'player1' : 'player2';
-          scores[key] = scores[key]! + 1;
-          widget.store.addDiamonds(kWinReward);
-          _winnerController.forward();
-        } else if (!board.contains('')) {
-          isDraw = true;
-          scores['draws'] = scores['draws']! + 1;
-          _winnerController.forward();
-        } else {
-          currentPlayer =
-              currentPlayer == widget.player1Emoji
-                  ? widget.player2Emoji
-                  : widget.player1Emoji;
-        }
-      });
-    }
-  }
-
-  bool _checkWinner(String player) {
-    List<List<int>> winPatterns = [
-      [0, 1, 2],
-      [3, 4, 5],
-      [6, 7, 8],
-      [0, 3, 6],
-      [1, 4, 7],
-      [2, 5, 8],
-      [0, 4, 8],
-      [2, 4, 6],
-    ];
-    return winPatterns.any(
-      (pattern) => pattern.every((index) => board[index] == player),
-    );
-  }
-
-  void _resetGame() {
-    setState(() {
-      board = List.filled(9, '');
-      currentPlayer = widget.player1Emoji;
-      winner = '';
-      isDraw = false;
-    });
-    _winnerController.reset();
-    _boardController.reset();
-    _boardController.forward();
-  }
-
-  void _resetScores() {
-    showDialog(
-      context: context,
-      builder: (context) => Dialog(
-        backgroundColor: kBg,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(0),
-          side: const BorderSide(color: kBlack, width: 2),
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 120),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          color: active ? kMint : Colors.white,
+          border: Border.all(color: kBlack, width: 2),
+          boxShadow: active
+              ? const [BoxShadow(color: kBlack, offset: Offset(4, 4))]
+              : kShadowNone,
         ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
+        child: Row(
           children: [
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(14),
-              color: kCoral,
-              child: const Text(
-                'RESET SCORES?',
-                textAlign: TextAlign.center,
-                style: TextStyle(
+            Text(
+              active ? '◉' : '○',
+              style: const TextStyle(
+                fontFamily: 'monospace',
+                fontSize: 14,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Text(
+              label,
+              style: const TextStyle(
+                fontFamily: 'monospace',
+                fontSize: 15,
+                fontWeight: FontWeight.w900,
+                letterSpacing: 1.5,
+                color: kBlack,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SignInChip extends StatelessWidget {
+  final GameStore store;
+  const _SignInChip({required this.store});
+
+  @override
+  Widget build(BuildContext context) {
+    final ready = store.firebaseReady;
+    final user = store.user;
+    return BrutalCard(
+      bg: ready ? kSky : const Color(0xFFE5E5E5),
+      shadow: kShadowSm,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      child: GestureDetector(
+        onTap: ready ? () => pushBrutal(context, SignInPage(store: store)) : null,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(user != null ? '⭕' : '👤', style: const TextStyle(fontSize: 18)),
+            const SizedBox(width: 8),
+            Flexible(
+              child: Text(
+                user != null
+                    ? 'SIGNED IN: ${user.name.toUpperCase()}'
+                    : (ready ? 'SIGN IN FOR LEADERBOARD' : 'SIGN-IN: FIREBASE NOT SET UP'),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
                   fontFamily: 'monospace',
-                  fontSize: 16,
+                  fontSize: 11,
                   fontWeight: FontWeight.w900,
+                  letterSpacing: 1,
                   color: kBlack,
                 ),
               ),
             ),
-            const Padding(
-              padding: EdgeInsets.all(20),
-              child: Text(
-                'Are you sure you want to reset all scores?',
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 15, color: kInk),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+//  Emoji selection
+// ────────────────────────────────────────────────────────────────────────────
+class EmojiSelectionPage extends StatelessWidget {
+  final GameStore store;
+  final GameMode mode;
+  const EmojiSelectionPage({super.key, required this.store, required this.mode});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(20),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 600),
+              child: _EmojiSelectionBody(store: store, mode: mode),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _EmojiSelectionBody extends StatefulWidget {
+  final GameStore store;
+  final GameMode mode;
+  const _EmojiSelectionBody({required this.store, required this.mode});
+
+  @override
+  State<_EmojiSelectionBody> createState() => _EmojiSelectionBodyState();
+}
+
+class _EmojiSelectionBodyState extends State<_EmojiSelectionBody> {
+  late String _p1 = '🐶';
+  late String _p2 = '🐼';
+
+  @override
+  Widget build(BuildContext context) {
+    final vsAi = widget.mode.isAi;
+    return AnimatedBuilder(
+      animation: widget.store,
+      builder: (context, _) {
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                BrutalIconButton(
+                  icon: Icons.arrow_back,
+                  onPressed: () => Navigator.pop(context),
+                ),
+                const SizedBox(width: 12),
+                const Expanded(
+                  child: Text(
+                    'PICK YOUR FIGHTERS',
+                    style: TextStyle(
+                      fontFamily: 'monospace',
+                      fontSize: 20,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 2,
+                    ),
+                  ),
+                ),
+                DiamondBadge(diamonds: widget.store.diamonds),
+              ],
+            ),
+            const SizedBox(height: 16),
+            ScoreBar(store: widget.store),
+            const SizedBox(height: 16),
+            BrutalCard(
+              bg: _p1Color,
+              child: _PickerHeader(
+                label: 'PLAYER 1',
+                selected: _p1,
+                onRandom: () =>
+                    setState(() => _p1 = _randomFree(widget.store)),
               ),
             ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: BrutalButton(
-                      label: 'CANCEL',
-                      bg: Colors.white,
-                      onPressed: () => Navigator.pop(context),
+            const SizedBox(height: 10),
+            _EmojiGrid(
+              store: widget.store,
+              selected: _p1,
+              onPick: (e) => setState(() => _p1 = e),
+            ),
+            const SizedBox(height: 20),
+            BrutalCard(
+              bg: vsAi ? kMint : _p2Color,
+              shadow: vsAi ? kShadowNone : kShadow,
+              child: vsAi
+                  ? const _PickerHeader(
+                      label: 'CPU OPPONENT',
+                      selected: kAiEmoji,
+                      hint: 'NO STOCK NEEDED 🤖',
+                    )
+                  : _PickerHeader(
+                      label: 'PLAYER 2',
+                      selected: _p2,
+                      onRandom: () =>
+                          setState(() => _p2 = _randomFree(widget.store)),
                     ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: BrutalButton(
-                      label: 'RESET',
-                      bg: kCoral,
-                      onPressed: () {
-                        setState(() {
-                          scores = {'player1': 0, 'player2': 0, 'draws': 0};
-                        });
-                        Navigator.pop(context);
-                      },
-                    ),
-                  ),
-                ],
+            ),
+            if (!vsAi) ...[
+              const SizedBox(height: 10),
+              _EmojiGrid(
+                store: widget.store,
+                selected: _p2,
+                onPick: (e) => setState(() => _p2 = e),
+              ),
+            ],
+            const SizedBox(height: 24),
+            BrutalButton(
+              label: widget.mode.label,
+              onPressed: () => pushBrutal(
+                context,
+                GamePage(
+                  store: widget.store,
+                  mode: widget.mode,
+                  p1Emoji: _p1,
+                  p2Emoji: widget.mode.isAi ? kAiEmoji : _p2,
+                ),
               ),
             ),
           ],
+        );
+      },
+    );
+  }
+
+  String _randomFree(GameStore store) {
+    final free = kCatalog.where((i) => store.isUnlocked(i.emoji)).toList();
+    return free[math.Random().nextInt(free.length)].emoji;
+  }
+
+  Color get _p1Color => kLavender;
+  Color get _p2Color => kSky;
+}
+
+class _PickerHeader extends StatelessWidget {
+  final String label;
+  final String selected;
+  final VoidCallback? onRandom;
+  final String? hint;
+  const _PickerHeader({
+    required this.label,
+    required this.selected,
+    this.onRandom,
+    this.hint,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: Text(
+            label,
+            style: const TextStyle(
+              fontFamily: 'monospace',
+              fontSize: 13,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 2,
+            ),
+          ),
+        ),
+        if (hint != null)
+          Text(
+            hint!,
+            style: const TextStyle(
+              fontFamily: 'monospace',
+              fontSize: 10,
+              fontWeight: FontWeight.w700,
+            ),
+          )
+        else
+          Row(
+            children: [
+              Text(selected, style: const TextStyle(fontSize: 26)),
+              const SizedBox(width: 8),
+              GestureDetector(
+                onTap: onRandom,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    border: Border.all(color: kBlack, width: 2),
+                  ),
+                  child: const Text(
+                    '🎲',
+                    style: TextStyle(fontSize: 16),
+                  ),
+                ),
+              ),
+            ],
+          ),
+      ],
+    );
+  }
+}
+
+class _EmojiGrid extends StatelessWidget {
+  final GameStore store;
+  final String selected;
+  final ValueChanged<String> onPick;
+  const _EmojiGrid({
+    required this.store,
+    required this.selected,
+    required this.onPick,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GridView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: kCatalog.length,
+      gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+        maxCrossAxisExtent: 92,
+        mainAxisSpacing: 8,
+        crossAxisSpacing: 8,
+      ),
+      itemBuilder: (context, i) {
+        final item = kCatalog[i];
+        final unlocked = store.isUnlocked(item.emoji);
+        return EmojiTile(
+          item: item,
+          selected: selected == item.emoji,
+          unlocked: unlocked,
+          onTap: () => onPick(item.emoji),
+        );
+      },
+    );
+  }
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+//  Game
+// ────────────────────────────────────────────────────────────────────────────
+const List<List<int>> _winLines = [
+  [0, 1, 2],
+  [3, 4, 5],
+  [6, 7, 8],
+  [0, 3, 6],
+  [1, 4, 7],
+  [2, 5, 8],
+  [0, 4, 8],
+  [2, 4, 6],
+];
+
+class GamePage extends StatefulWidget {
+  final GameStore store;
+  final GameMode mode;
+  final String p1Emoji;
+  final String p2Emoji;
+  const GamePage({
+    super.key,
+    required this.store,
+    required this.mode,
+    required this.p1Emoji,
+    required this.p2Emoji,
+  });
+
+  @override
+  State<GamePage> createState() => _GamePageState();
+}
+
+class _GamePageState extends State<GamePage> {
+  late List<String?> _board = List.filled(9, null);
+  late String _current = widget.p1Emoji;
+  bool _over = false;
+  bool _reported = false;
+  List<int>? _winningLine;
+  Timer? _aiTimer;
+
+  bool get _isAiTurn =>
+      widget.mode.isAi && _current == widget.p2Emoji;
+
+  @override
+  void dispose() {
+    _aiTimer?.cancel();
+    super.dispose();
+  }
+
+  void _reset() {
+    setState(() {
+      _board = List.filled(9, null);
+      _current = widget.p1Emoji;
+      _over = false;
+      _reported = false;
+      _winningLine = null;
+    });
+  }
+
+  Future<void> _onCell(int i) async {
+    if (_over || _board[i] != null || _isAiTurn) return;
+    _move(i, _current);
+  }
+
+  void _move(int i, String mark) {
+    setState(() {
+      _board[i] = mark;
+      _current = mark == widget.p1Emoji ? widget.p2Emoji : widget.p1Emoji;
+    });
+    _checkEnd();
+    if (!_over && _isAiTurn) {
+      _aiTimer?.cancel();
+      _aiTimer = Timer(const Duration(milliseconds: 420), _aiMove);
+    }
+  }
+
+  void _aiMove() {
+    if (!mounted || _over) return;
+    final empties = [
+      for (int i = 0; i < 9; i++)
+        if (_board[i] == null) i
+    ];
+    if (empties.isEmpty) return;
+    final pick = widget.mode == GameMode.vsAiEasy
+        ? empties[math.Random().nextInt(empties.length)]
+        : _bestAiMove(empties);
+    _move(pick, widget.p2Emoji);
+  }
+
+  int _bestAiMove(List<int> empties) {
+    int bestScore = -1000;
+    int best = empties.first;
+    for (final i in empties) {
+      _board[i] = widget.p2Emoji;
+      final score = _minimax(false);
+      _board[i] = null;
+      if (score > bestScore) {
+        bestScore = score;
+        best = i;
+      }
+    }
+    return best;
+  }
+
+  int _minimax(bool aiTurn) {
+    final w = _winner();
+    if (w == widget.p2Emoji) return 10;
+    if (w == widget.p1Emoji) return -10;
+    if (!_board.contains(null)) return 0;
+    int best = aiTurn ? -1000 : 1000;
+    for (int i = 0; i < 9; i++) {
+      if (_board[i] != null) continue;
+      _board[i] = aiTurn ? widget.p2Emoji : widget.p1Emoji;
+      final score = _minimax(!aiTurn);
+      _board[i] = null;
+      best = aiTurn ? math.max(best, score) : math.min(best, score);
+    }
+    return best;
+  }
+
+  String? _winner() {
+    for (final line in _winLines) {
+      final a = _board[line[0]];
+      if (a != null && a == _board[line[1]] && a == _board[line[2]]) {
+        return a;
+      }
+    }
+    return null;
+  }
+
+  void _checkEnd() {
+    final w = _winner();
+    if (w != null) {
+      final line = _winLines.firstWhere((l) =>
+          _board[l[0]] != null &&
+          _board[l[0]] == _board[l[1]] &&
+          _board[l[0]] == _board[l[2]]);
+      final p1Won = w == widget.p1Emoji;
+      final p2Won = w == widget.p2Emoji;
+      setState(() {
+        _over = true;
+        _winningLine = line;
+      });
+      _finishRound(p1Won: p1Won, p2Won: p2Won);
+    } else if (!_board.contains(null)) {
+      setState(() => _over = true);
+      _finishRound(p1Won: false, p2Won: false);
+    }
+  }
+
+  void _finishRound({required bool p1Won, required bool p2Won}) {
+    if (_reported) return;
+    _reported = true;
+    widget.store.reportRound(p1Win: p1Won, p2Win: p2Won);
+    final playerWon = widget.mode.isAi ? p1Won : p1Won || p2Won;
+    if (playerWon) widget.store.addDiamonds(kWinReward);
+    _showResult(p1Won: p1Won, p2Won: p2Won);
+  }
+
+  void _showResult({required bool p1Won, required bool p2Won}) {
+    final isDraw = !p1Won && !p2Won;
+    String title;
+    String emoji;
+    if (isDraw) {
+      title = 'DRAW';
+      emoji = '🤝';
+    } else if (p1Won) {
+      title = 'PLAYER 1 WINS';
+      emoji = widget.p1Emoji;
+    } else {
+      title = 'CPU WINS';
+      emoji = widget.p2Emoji;
+    }
+    showDialog(
+      context: context,
+      barrierColor: kBlack.withValues(alpha: 0.6),
+      builder: (context) => Dialog(
+        backgroundColor: Colors.transparent,
+        child: BrutalCard(
+          bg: kCanary,
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(emoji, style: const TextStyle(fontSize: 56)),
+              const SizedBox(height: 8),
+              Text(
+                title,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontFamily: 'monospace',
+                  fontSize: 22,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 2,
+                ),
+              ),
+              const SizedBox(height: 6),
+              if (p1Won) ...[
+                const Text(
+                  '+💎 REWARD',
+                  style: TextStyle(
+                    fontFamily: 'monospace',
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 2),
+              ],
+              const SizedBox(height: 16),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  BrutalButton(
+                    label: 'PLAY AGAIN',
+                    onPressed: () {
+                      Navigator.pop(context);
+                      _reset();
+                    },
+                  ),
+                  const SizedBox(width: 12),
+                  BrutalButton(
+                    label: 'MENU',
+                    bg: Colors.white,
+                    onPressed: () {
+                      Navigator.pop(context);
+                      Navigator.pop(context);
+                    },
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -1261,198 +758,272 @@ class _TicTacToePageState extends State<TicTacToePage>
 
   @override
   Widget build(BuildContext context) {
-    final player1Color = _gradientColor(widget.player1Emoji);
-    final player2Color = _gradientColor(widget.player2Emoji);
-
-    return Scaffold(
-      body: SafeArea(
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  _BackButton(onPressed: () => Navigator.pop(context)),
-                  const Text(
-                    'EMOJI TIC-TAC-TOE',
-                    style: TextStyle(
-                      fontFamily: 'monospace',
-                      fontSize: 16,
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: 1.2,
-                      color: kBlack,
-                    ),
-                  ),
-                  _IconButton(icon: Icons.replay, onPressed: _resetScores),
-                ],
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                children: [
-                  _ScoreCard(
-                    emoji: widget.player1Emoji,
-                    color: player1Color,
-                    score: scores['player1']!,
-                    label: 'P1',
-                  ),
-                  _ScoreCard(
-                    emoji: '🤝',
-                    color: kCanarySoft,
-                    score: scores['draws']!,
-                    label: 'DRAW',
-                  ),
-                  _ScoreCard(
-                    emoji: widget.player2Emoji,
-                    color: player2Color,
-                    score: scores['player2']!,
-                    label: 'P2',
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 8),
-            DiamondBadge(store: widget.store),
-            const SizedBox(height: 10),
-            if (winner == '' && !isDraw)
-              BrutalCard(
-                shadow: kShadowSm,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 10,
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
+    return PopScope(
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop) _aiTimer?.cancel();
+      },
+      child: Scaffold(
+        body: SafeArea(
+          child: Center(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(20),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 560),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 4,
-                      ),
-                      color: kLavender,
-                      child: const Text(
-                        'CURRENT',
-                        style: TextStyle(
-                          fontFamily: 'monospace',
-                          fontSize: 12,
-                          fontWeight: FontWeight.w900,
-                          color: kBlack,
+                    Row(
+                      children: [
+                        BrutalIconButton(
+                          icon: Icons.arrow_back,
+                          onPressed: () {
+                            _aiTimer?.cancel();
+                            Navigator.pop(context);
+                          },
                         ),
-                      ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            widget.mode.label,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontFamily: 'monospace',
+                              fontSize: 17,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: 2,
+                            ),
+                          ),
+                        ),
+                        DiamondBadge(diamonds: widget.store.diamonds),
+                      ],
                     ),
-                    const SizedBox(width: 10),
-                    Text(
-                      currentPlayer,
-                      style: const TextStyle(fontSize: 28),
+                    const SizedBox(height: 12),
+                    _TurnStrip(
+                      p1: widget.p1Emoji,
+                      p2: widget.p2Emoji,
+                      current: _current,
+                      isAiMode: widget.mode.isAi,
+                    ),
+                    const SizedBox(height: 16),
+                    _Board(
+                      board: _board,
+                      winningLine: _winningLine,
+                      onTap: _onCell,
+                    ),
+                    const SizedBox(height: 16),
+                    BrutalButton(
+                      label: 'NEW GAME',
+                      bg: Colors.white,
+                      onPressed: _reset,
                     ),
                   ],
                 ),
               ),
-            if (winner != '' || isDraw)
-              ScaleTransition(
-                scale: _winnerAnimation,
-                child: BrutalCard(
-                  bg: kCanarySoft,
-                  shadow: kShadowSm,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 20,
-                    vertical: 14,
-                  ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        isDraw
-                            ? "IT'S A DRAW! 🤝"
-                            : '$winner WINS! 🎉',
-                        style: const TextStyle(
-                          fontFamily: 'monospace',
-                          fontSize: 18,
-                          fontWeight: FontWeight.w900,
-                          color: kBlack,
-                        ),
-                      ),
-                      if (!isDraw) ...[
-                        const SizedBox(height: 6),
-                        const Text(
-                          '+💎 REWARD EARNED',
-                          style: TextStyle(
-                            fontFamily: 'monospace',
-                            fontSize: 13,
-                            fontWeight: FontWeight.w900,
-                            color: kBlack,
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-              ),
-            const SizedBox(height: 18),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _TurnStrip extends StatelessWidget {
+  final String p1;
+  final String p2;
+  final String current;
+  final bool isAiMode;
+  const _TurnStrip({
+    required this.p1,
+    required this.p2,
+    required this.current,
+    required this.isAiMode,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final active = current == p1;
+    final label = isAiMode && active ? 'YOUR TURN' : '${active ? 'P1' : 'P2'} TURN';
+    return BrutalCard(
+      bg: active ? kMint : kCoral,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+child: Row(
+          children: [
+            Text(p1, style: const TextStyle(fontSize: 28)),
+            const SizedBox(width: 12),
             Expanded(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: ScaleTransition(
-                  scale: _boardAnimation,
-                  child: GridView.builder(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    gridDelegate:
-                        const SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 3,
-                          crossAxisSpacing: 12,
-                          mainAxisSpacing: 12,
-                        ),
-                    itemCount: 9,
-                    itemBuilder: (context, index) => _buildGameCell(index),
-                  ),
+              child: Text(
+                label,
+                style: const TextStyle(
+                  fontFamily: 'monospace',
+                  fontSize: 14,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 1.5,
                 ),
               ),
             ),
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: BrutalButton(
-                label: 'NEW ROUND',
-                bg: kCanary,
-                onPressed: _resetGame,
-              ),
-            ),
+            Text(p2, style: const TextStyle(fontSize: 28)),
           ],
         ),
       ),
     );
   }
+}
 
-  Widget _buildGameCell(int index) {
-    final filled = board[index] != '';
-    final isP1 = board[index] == widget.player1Emoji;
-    final cellColor = !filled
-        ? Colors.white
-        : isP1
-        ? kSky
-        : kCoral;
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 150),
-      decoration: BoxDecoration(
-        color: cellColor,
-        border: Border.all(color: kBlack, width: 3),
-        boxShadow: kShadowSm,
+class _Board extends StatelessWidget {
+  final List<String?> board;
+  final List<int>? winningLine;
+  final ValueChanged<int> onTap;
+  const _Board({
+    required this.board,
+    required this.winningLine,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return AspectRatio(
+      aspectRatio: 1,
+      child: GridView.builder(
+        physics: const NeverScrollableScrollPhysics(),
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 3,
+          mainAxisSpacing: 8,
+          crossAxisSpacing: 8,
+        ),
+        itemCount: 9,
+        itemBuilder: (context, i) {
+          final mark = board[i];
+          final isWin = winningLine?.contains(i) ?? false;
+          return GestureDetector(
+            onTap: () => onTap(i),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 120),
+              decoration: BoxDecoration(
+                color: isWin
+                    ? kCanary
+                    : gradientColor(mark!),
+                border: Border.all(color: kBlack, width: 2),
+                boxShadow: const [
+                  BoxShadow(color: kBlack, offset: Offset(4, 4)),
+                ],
+              ),
+              child: Center(
+                child: Text(
+                  mark ?? '',
+                  style: const TextStyle(fontSize: 40),
+                ),
+              ),
+            ),
+          );
+        },
       ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: () => _handleTap(index),
-          child: Center(
-            child: AnimatedScale(
-              scale: filled ? 1.0 : 0.0,
-              duration: const Duration(milliseconds: 250),
-              curve: Curves.easeOutBack,
-              child: Text(
-                board[index],
-                style: const TextStyle(fontSize: 52),
+    );
+  }
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+//  Store
+// ────────────────────────────────────────────────────────────────────────────
+class StorePage extends StatelessWidget {
+  final GameStore store;
+  const StorePage({super.key, required this.store});
+
+  void _buy(BuildContext context, String emoji) {
+    final ok = store.buy(emoji);
+    final item = kCatalog.firstWhere((i) => i.emoji == emoji);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        backgroundColor: ok ? kMint : kCoral,
+        content: Text(
+          ok ? 'UNLOCKED ${item.emoji}!' : 'NEED ${item.price}💎',
+          style: const TextStyle(
+            fontFamily: 'monospace',
+            fontSize: 14,
+            fontWeight: FontWeight.w900,
+            color: kBlack,
+          ),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(20),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 600),
+              child: AnimatedBuilder(
+                animation: store,
+                builder: (context, _) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Row(
+                        children: [
+                          BrutalIconButton(
+                            icon: Icons.arrow_back,
+                            onPressed: () => Navigator.pop(context),
+                          ),
+                          const SizedBox(width: 12),
+                          const Expanded(
+                            child: Text(
+                              'EMOJI STORE',
+                              style: TextStyle(
+                                fontFamily: 'monospace',
+                                fontSize: 20,
+                                fontWeight: FontWeight.w900,
+                                letterSpacing: 2,
+                              ),
+                            ),
+                          ),
+                          DiamondBadge(diamonds: store.diamonds),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      BrutalCard(
+                        bg: kCanarySoft,
+                        child: const Text(
+                          'WIN MATCHES TO EARN 💎. SPEND THEM HERE ON '
+                          'NEW FIGHTERS.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontFamily: 'monospace',
+                            fontSize: 12,
+                            height: 1.4,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      GridView.builder(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        itemCount: kCatalog.length,
+                        gridDelegate:
+                            const SliverGridDelegateWithMaxCrossAxisExtent(
+                          maxCrossAxisExtent: 130,
+                          mainAxisSpacing: 12,
+                          crossAxisSpacing: 12,
+                        ),
+                        itemBuilder: (context, i) {
+                          final item = kCatalog[i];
+                          final unlocked = store.isUnlocked(item.emoji);
+                          return _StoreTile(
+                            item: item,
+                            unlocked: unlocked,
+                            diamonds: store.diamonds,
+                            onBuy: () => _buy(context, item.emoji),
+                          );
+                        },
+                      ),
+                    ],
+                  );
+                },
               ),
             ),
           ),
@@ -1462,123 +1033,425 @@ class _TicTacToePageState extends State<TicTacToePage>
   }
 }
 
-// ────────────────────────────────────────────────────────────────────────────
-//  Shared brutalist chrome
-// ────────────────────────────────────────────────────────────────────────────
-class AffordButton extends StatelessWidget {
-  final bool affordable;
-  final String label;
-  final VoidCallback? onPressed;
-  const AffordButton({
-    super.key,
-    required this.affordable,
-    required this.label,
-    this.onPressed,
+class _StoreTile extends StatelessWidget {
+  final EmojiItem item;
+  final bool unlocked;
+  final int diamonds;
+  final VoidCallback onBuy;
+  const _StoreTile({
+    required this.item,
+    required this.unlocked,
+    required this.diamonds,
+    required this.onBuy,
   });
 
   @override
   Widget build(BuildContext context) {
-    return BrutalButton(
-      label: label,
-      bg: affordable ? kCanary : kCoral,
-      enabled: affordable && onPressed != null,
-      onPressed: affordable ? onPressed : null,
-    );
-  }
-}
-
-class _ScoreCard extends StatelessWidget {
-  final String emoji;
-  final Color color;
-  final int score;
-  final String label;
-  const _ScoreCard({
-    required this.emoji,
-    required this.color,
-    required this.score,
-    required this.label,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-      decoration: BoxDecoration(
-        color: color,
-        border: Border.all(color: kBlack, width: 2),
-        boxShadow: kShadowSm,
-      ),
+    final affordable = !unlocked && diamonds >= item.price;
+    return BrutalCard(
+      bg: unlocked ? kMint : Colors.white,
+      shadow: kShadowSm,
+      padding: const EdgeInsets.all(10),
       child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Text(emoji, style: const TextStyle(fontSize: 28)),
-          const SizedBox(height: 4),
-          Text(
-            '$score',
-            style: const TextStyle(
-              fontFamily: 'monospace',
-              fontSize: 24,
-              fontWeight: FontWeight.w900,
-              color: kBlack,
+          Text(item.emoji, style: const TextStyle(fontSize: 38)),
+          const SizedBox(height: 6),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              item.name.toUpperCase(),
+              style: const TextStyle(
+                fontFamily: 'monospace',
+                fontSize: 11,
+                fontWeight: FontWeight.w900,
+              ),
             ),
           ),
-          const SizedBox(height: 4),
-          Text(
-            label,
-            style: const TextStyle(
-              fontFamily: 'monospace',
-              fontSize: 11,
-              fontWeight: FontWeight.w900,
-              letterSpacing: 1,
-              color: kBlack,
+          const SizedBox(height: 8),
+          if (unlocked)
+            const Text(
+              'OWNED ✓',
+              style: TextStyle(
+                fontFamily: 'monospace',
+                fontSize: 10,
+                fontWeight: FontWeight.w700,
+              ),
+            )
+          else
+            AffordButton(
+              affordable: affordable,
+              label: '${item.price}💎',
+              onPressed: onBuy,
             ),
-          ),
         ],
       ),
     );
   }
 }
 
-class _BackButton extends StatelessWidget {
-  final VoidCallback onPressed;
-  const _BackButton({required this.onPressed});
+// ────────────────────────────────────────────────────────────────────────────
+//  Sign in
+// ────────────────────────────────────────────────────────────────────────────
+class SignInPage extends StatefulWidget {
+  final GameStore store;
+  const SignInPage({super.key, required this.store});
+
+  @override
+  State<SignInPage> createState() => _SignInPageState();
+}
+
+class _SignInPageState extends State<SignInPage> {
+  bool _busy = false;
 
   @override
   Widget build(BuildContext context) {
-    return _IconButton(icon: Icons.arrow_back, onPressed: onPressed);
+    final store = widget.store;
+    return Scaffold(
+      body: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(20),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 460),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  BrutalIconButton(
+                    icon: Icons.arrow_back,
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                  const SizedBox(height: 24),
+                  const Text(
+                    'SIGN IN',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontFamily: 'monospace',
+                      fontSize: 40,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 3,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    '👤',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 56),
+                  ),
+                  const SizedBox(height: 24),
+                  if (!store.firebaseReady)
+                    BrutalCard(
+                      bg: kCoral,
+                      child: const Text(
+                        'FIREBASE ISN\'T CONFIGURED YET.\n'
+                        'SEE THE README FOR THE 3-MIN SETUP '
+                        '(ADD google-services.json + GOOGLE CLIENT-ID).\n\n'
+                        'UNTIL THEN YOU CAN STILL PLAY LOCALLY — '
+                        'SCORES ARE SAVED ON THIS DEVICE.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontFamily: 'monospace',
+                          fontSize: 12,
+                          height: 1.5,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    )
+                  else if (store.user != null)
+                    BrutalCard(
+                      bg: kMint,
+                      child: Column(
+                        children: [
+                          Text(
+                            'SIGNED IN AS',
+                            style: const TextStyle(
+                              fontFamily: 'monospace',
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            store.user!.name.toUpperCase(),
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                              fontFamily: 'monospace',
+                              fontSize: 16,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                  else
+                    BrutalCard(
+                      bg: kSky,
+                      child: const Text(
+                        'CONNECT A GOOGLE ACCOUNT TO SYNC YOUR '
+                        'WINS TO THE GLOBAL LEADERBOARD.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontFamily: 'monospace',
+                          fontSize: 12,
+                          height: 1.5,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  const SizedBox(height: 20),
+                  if (_busy)
+                    const Center(child: CircularProgressIndicator())
+                  else if (store.firebaseReady && store.user == null)
+                    BrutalButton(
+                      label: '▶ SIGN IN WITH GOOGLE',
+                      bg: kCanary,
+                      onPressed: () async {
+                        setState(() => _busy = true);
+                        final ok = await store.services.signInWithGoogle();
+                        if (!context.mounted) return;
+                        setState(() => _busy = false);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            backgroundColor: ok ? kMint : kCoral,
+                            content: Text(
+                              ok ? 'WELCOME!' : 'SIGN-IN FAILED / CANCELLED',
+                              style: const TextStyle(
+                                fontFamily: 'monospace',
+                                fontWeight: FontWeight.w900,
+                                color: kBlack,
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                    )
+                  else if (store.firebaseReady && store.user != null)
+                    BrutalButton(
+                      label: 'SIGN OUT',
+                      bg: Colors.white,
+                      onPressed: () => store.services.signOut(),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
 
-class _IconButton extends StatefulWidget {
-  final IconData icon;
-  final VoidCallback onPressed;
-  const _IconButton({required this.icon, required this.onPressed});
+// ────────────────────────────────────────────────────────────────────────────
+//  Leaderboard
+// ────────────────────────────────────────────────────────────────────────────
+class LeaderboardPage extends StatefulWidget {
+  final GameStore store;
+  const LeaderboardPage({super.key, required this.store});
 
   @override
-  State<_IconButton> createState() => _IconButtonState();
+  State<LeaderboardPage> createState() => _LeaderboardPageState();
 }
 
-class _IconButtonState extends State<_IconButton> {
-  bool _pressed = false;
+class _LeaderboardPageState extends State<LeaderboardPage> {
+  late Future<List<LeaderboardEntry>> _future;
+
+  @override
+  void initState() {
+    super.initState();
+    _future = widget.store.services.fetchLeaderboard();
+  }
+
+  void _refresh() {
+    setState(() {
+      _future = widget.store.services.fetchLeaderboard();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTapDown: (_) => setState(() => _pressed = true),
-      onTapUp: (_) => setState(() => _pressed = false),
-      onTapCancel: () => setState(() => _pressed = false),
-      onTap: widget.onPressed,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 80),
-        padding: const EdgeInsets.all(10),
-        transform: _pressed
-            ? Matrix4.translationValues(2, 2, 0)
-            : Matrix4.identity(),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          border: Border.all(color: kBlack, width: 2),
-          boxShadow: _pressed ? kShadowNone : kShadowSm,
+    return Scaffold(
+      body: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(20),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 560),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    children: [
+                      BrutalIconButton(
+                        icon: Icons.arrow_back,
+                        onPressed: () => Navigator.pop(context),
+                      ),
+                      const SizedBox(width: 12),
+                      const Expanded(
+                        child: Text(
+                          'LEADERBOARD',
+                          style: TextStyle(
+                            fontFamily: 'monospace',
+                            fontSize: 20,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 2,
+                          ),
+                        ),
+                      ),
+                      BrutalIconButton(
+                        icon: Icons.refresh,
+                        onPressed: _refresh,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  if (!widget.store.firebaseReady)
+                    BrutalCard(
+                      bg: kCoral,
+                      child: const Text(
+                        'ONLINE BOARD NEEDS GOOGLE SIGN-IN + FIREBASE.\n'
+                        'SHOWING THIS DEVICE\'S TOTALS.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontFamily: 'monospace',
+                          fontSize: 12,
+                          height: 1.5,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    )
+                  else
+                    BrutalCard(
+                      bg: kSky,
+                      child: const Text(
+                        'GLOBAL TOP WINS · UPDATED AFTER EACH MATCH',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontFamily: 'monospace',
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  const SizedBox(height: 16),
+                  FutureBuilder<List<LeaderboardEntry>>(
+                    future: _future,
+                    builder: (context, snap) {
+                      if (snap.connectionState != ConnectionState.done) {
+                        return const BrutalCard(
+                          child: Center(
+                            child: Padding(
+                              padding: EdgeInsets.all(20),
+                              child: CircularProgressIndicator(),
+                            ),
+                          ),
+                        );
+                      }
+                      final entries = snap.data ?? const [];
+                      if (entries.isEmpty) {
+                        return const BrutalCard(
+                          child: Padding(
+                            padding: EdgeInsets.all(20),
+                            child: Text(
+                              'NO RESULTS YET. GO WIN SOME GAMES!',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontFamily: 'monospace',
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
+                          ),
+                        );
+                      }
+                      return Column(
+                        children: [
+                          for (int i = 0; i < entries.length; i++)
+                            _RankRow(
+                              rank: i + 1,
+                              entry: entries[i],
+                              isMe: widget.store.user != null &&
+                                  entries[i].name == widget.store.user!.name,
+                            ),
+                        ],
+                      );
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ),
         ),
-        child: Icon(widget.icon, color: kBlack, size: 24),
+      ),
+    );
+  }
+}
+
+class _RankRow extends StatelessWidget {
+  final int rank;
+  final LeaderboardEntry entry;
+  final bool isMe;
+  const _RankRow({
+    required this.rank,
+    required this.entry,
+    required this.isMe,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final medal = rank == 1
+        ? '🥇'
+        : rank == 2
+            ? '🥈'
+            : rank == 3
+                ? '🥉'
+                : '$rank';
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: BrutalCard(
+        bg: isMe ? kCanary : Colors.white,
+        shadow: kShadowSm,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        child: Row(
+          children: [
+            SizedBox(
+              width: 34,
+              child: Text(
+                medal,
+                textAlign: TextAlign.center,
+                style: const TextStyle(fontSize: 20),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                entry.name,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontFamily: 'monospace',
+                  fontSize: 14,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ),
+            Text(
+              '${entry.wins} W',
+              style: const TextStyle(
+                fontFamily: 'monospace',
+                fontSize: 13,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Text(
+              '${entry.games} G',
+              style: const TextStyle(
+                fontFamily: 'monospace',
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
