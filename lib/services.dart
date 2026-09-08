@@ -83,6 +83,31 @@ class LobbyGame {
   });
 }
 
+/// A friend (or pending friend request) with their profile sticker.
+class FriendEntry {
+  final String uid;
+  final String name;
+  final String emoji;
+  const FriendEntry({
+    required this.uid,
+    required this.name,
+    required this.emoji,
+  });
+}
+
+/// A snapshot of a user's friend list: accepted, incoming + outgoing requests.
+class FriendData {
+  final List<FriendEntry> friends;
+  final List<FriendEntry> incoming;
+  final List<FriendEntry> outgoing;
+  const FriendData({
+    this.friends = const [],
+    this.incoming = const [],
+    this.outgoing = const [],
+  });
+  bool get isEmpty => friends.isEmpty && incoming.isEmpty && outgoing.isEmpty;
+}
+
 /// Wraps Firebase Auth + Firestore + local fallback storage.
 ///
 /// Designed to degrade gracefully: if Firebase isn't configured yet
@@ -762,6 +787,204 @@ class AppServices extends ChangeNotifier {
       });
     } catch (_) {
       return 2;
+    }
+  }
+
+  // ── Rematch protocol ─────────────────────────────────────────────────────
+  /// Returns 'proposed' (waiting for the rival), 'started' (both sides agreed,
+  /// the doc was reset to a fresh 'playing' round) or 'invalid'.
+  Future<String> requestRematch(String id, String side) async {
+    if (_db == null) return 'invalid';
+    try {
+      final ref = _db!.collection('onlineOpen').doc(id);
+      return await _db!.runTransaction((tx) async {
+        final snap = await tx.get(ref);
+        if (!snap.exists) return 'invalid';
+        final d = snap.data()!;
+        if (d['status'] != 'done') return 'invalid';
+        final req = (d['rematch'] as String?) ?? '';
+        if (req == side) return 'proposed';
+        if (req.isNotEmpty) {
+          tx.update(ref, {
+            'board': List<String?>.filled(9, null),
+            'moves': <int>[],
+            'winner': '',
+            'turn': d['hostEmoji'] as String,
+            'status': 'playing',
+            'rematch': '',
+          });
+          return 'started';
+        }
+        tx.update(ref, {'rematch': side});
+        return 'proposed';
+      });
+    } catch (_) {
+      return 'invalid';
+    }
+  }
+
+  Future<void> declineRematch(String id) async {
+    if (_db == null) return;
+    try {
+      await _db!.collection('onlineOpen').doc(id).update({'rematch': ''});
+    } catch (_) {}
+  }
+
+  // ── Friends ──────────────────────────────────────────────────────────────
+  static List<FriendEntry> _friendsFromMap(Map<String, dynamic>? src) {
+    if (src == null) return const [];
+    return src.entries
+        .map((e) {
+          final v = (e.value as Map?) ?? const {};
+          return FriendEntry(
+            uid: e.key,
+            name: (v['name'] as String?) ?? 'Player',
+            emoji: (v['emoji'] as String?) ?? '🐶',
+          );
+        })
+        .toList();
+  }
+
+  Future<FriendData> fetchFriends() async {
+    if (!online || _db == null || _auth == null) return const FriendData();
+    try {
+      final doc = await _db!
+          .collection('friends')
+          .doc(_auth!.currentUser!.uid)
+          .get();
+      final d = doc.data();
+      return FriendData(
+        friends: _friendsFromMap((d?['friends'] as Map<String, dynamic>?)),
+        incoming: _friendsFromMap((d?['incoming'] as Map<String, dynamic>?)),
+        outgoing: _friendsFromMap((d?['outgoing'] as Map<String, dynamic>?)),
+      );
+    } catch (_) {
+      return const FriendData();
+    }
+  }
+
+  Future<bool> sendFriendRequest(
+    String uid, {
+    required String name,
+    required String emoji,
+  }) async {
+    if (!online || _db == null || _auth == null) return false;
+    final myUid = _auth!.currentUser!.uid;
+    if (uid == myUid) return false;
+    try {
+      final myRef = _db!.collection('friends').doc(myUid);
+      final theirRef = _db!.collection('friends').doc(uid);
+      return await _db!.runTransaction((tx) async {
+        final mySnap = await tx.get(myRef);
+        final theirSnap = await tx.get(theirRef);
+        final myData = Map<String, dynamic>.from((mySnap.data() ?? {}));
+        final theirData = Map<String, dynamic>.from((theirSnap.data() ?? {}));
+        final friends =
+            Map<String, dynamic>.from((myData['friends'] as Map?) ?? {});
+        if (friends.containsKey(uid)) return true;
+        final outgoing =
+            Map<String, dynamic>.from((myData['outgoing'] as Map?) ?? {});
+        final incoming =
+            Map<String, dynamic>.from((theirData['incoming'] as Map?) ?? {});
+        final now = DateTime.now().millisecondsSinceEpoch;
+        outgoing[uid] = {'name': name, 'emoji': emoji, 'atMs': now};
+        incoming[myUid] = {
+          'name': displayName,
+          'emoji': avatar ?? '🐶',
+          'atMs': now,
+        };
+        myData['outgoing'] = outgoing;
+        theirData['incoming'] = incoming;
+        tx.set(myRef, myData);
+        tx.set(theirRef, theirData);
+        return true;
+      });
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<bool> acceptFriend(String uid) async {
+    if (!online || _db == null || _auth == null) return false;
+    final myUid = _auth!.currentUser!.uid;
+    try {
+      final myRef = _db!.collection('friends').doc(myUid);
+      final theirRef = _db!.collection('friends').doc(uid);
+      return await _db!.runTransaction((tx) async {
+        final mySnap = await tx.get(myRef);
+        final theirSnap = await tx.get(theirRef);
+        final myData = Map<String, dynamic>.from((mySnap.data() ?? {}));
+        final theirData = Map<String, dynamic>.from((theirSnap.data() ?? {}));
+        final incoming =
+            Map<String, dynamic>.from((myData['incoming'] as Map?) ?? {});
+        final entry = incoming.remove(uid);
+        if (entry == null) return false;
+        final friends =
+            Map<String, dynamic>.from((myData['friends'] as Map?) ?? {});
+        friends[uid] = entry;
+        final theirFriends =
+            Map<String, dynamic>.from((theirData['friends'] as Map?) ?? {});
+        theirFriends[myUid] = {
+          'name': displayName,
+          'emoji': avatar ?? '🐶',
+        };
+        if (friends.isNotEmpty) myData['friends'] = friends;
+        if (incoming.isNotEmpty) {
+          myData['incoming'] = incoming;
+        } else {
+          myData.remove('incoming');
+        }
+        final theirOutgoing =
+            Map<String, dynamic>.from((theirData['outgoing'] as Map?) ?? {})
+              ..remove(myUid);
+        theirData['friends'] = theirFriends;
+        if (theirOutgoing.isNotEmpty) {
+          theirData['outgoing'] = theirOutgoing;
+        } else {
+          theirData.remove('outgoing');
+        }
+        tx.set(myRef, myData);
+        tx.set(theirRef, theirData);
+        return true;
+      });
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<bool> declineFriend(String uid) async {
+    if (!online || _db == null || _auth == null) return false;
+    final myUid = _auth!.currentUser!.uid;
+    try {
+      final myRef = _db!.collection('friends').doc(myUid);
+      final theirRef = _db!.collection('friends').doc(uid);
+      return await _db!.runTransaction((tx) async {
+        final mySnap = await tx.get(myRef);
+        final theirSnap = await tx.get(theirRef);
+        final myData = Map<String, dynamic>.from((mySnap.data() ?? {}));
+        final theirData = Map<String, dynamic>.from((theirSnap.data() ?? {}));
+        final incoming =
+            Map<String, dynamic>.from((myData['incoming'] as Map?) ?? {});
+        incoming.remove(uid);
+        if (incoming.isNotEmpty) {
+          myData['incoming'] = incoming;
+        } else {
+          myData.remove('incoming');
+        }
+        final theirOutgoing =
+            Map<String, dynamic>.from((theirData['outgoing'] as Map?) ?? {})
+              ..remove(myUid);
+        if (theirOutgoing.isNotEmpty) {
+          theirData['outgoing'] = theirOutgoing;
+        } else {
+          theirData.remove('outgoing');
+        }
+        tx.set(myRef, myData);
+        tx.set(theirRef, theirData);
+        return true;
+      });
+    } catch (_) {
+      return false;
     }
   }
 }

@@ -222,6 +222,7 @@ class GameStore extends ChangeNotifier {
   String _questDate = '';
   String _bonusDate = '';
   final Set<String> _claimedToday = {};
+  int _totalGemsEarned = 0;
 
   static const String _stateKey = 'ttt_state_v2';
 
@@ -272,10 +273,14 @@ class GameStore extends ChangeNotifier {
   int get winReward => kWinReward * streakMultiplier;
 
   void addDiamonds(int amount) {
+    if (amount <= 0) return;
     _diamonds += amount;
+    _totalGemsEarned += amount;
     _save();
     notifyListeners();
   }
+
+  int get totalGemsEarned => _totalGemsEarned;
 
   // ── Shopping ──────────────────────────────────────────────────────────────
   bool buy(String emoji) {
@@ -342,8 +347,7 @@ class GameStore extends ChangeNotifier {
   Future<int?> claimDaily() async {
     if (!canClaimDaily) return null;
     _bonusDate = _todayKey;
-    _diamonds += kDailyBonus;
-    notifyListeners();
+    addDiamonds(kDailyBonus);
     await _save();
     return kDailyBonus;
   }
@@ -379,8 +383,7 @@ class GameStore extends ChangeNotifier {
     for (final q in quests) {
       if (q.id == id && q.done && !q.claimed) {
         _claimedToday.add(id);
-        _diamonds += q.reward;
-        notifyListeners();
+        addDiamonds(q.reward);
         await _save();
         return q.reward;
       }
@@ -433,6 +436,7 @@ class GameStore extends ChangeNotifier {
       _streakReachedToday = (j['qs'] as bool?) ?? false;
       _claimedToday.addAll((j['claimed'] as List?)?.cast<String>() ?? const []);
       _bonusDate = (j['bonus'] as String?) ?? '';
+      _totalGemsEarned = (j['ge'] as num?)?.toInt() ?? 0;
     } catch (_) {}
     notifyListeners();
   }
@@ -456,6 +460,7 @@ class GameStore extends ChangeNotifier {
           'qs': _streakReachedToday,
           'claimed': _claimedToday.toList(),
           'bonus': _bonusDate,
+          'ge': _totalGemsEarned,
         }),
       );
     } catch (_) {}

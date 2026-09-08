@@ -188,64 +188,87 @@ class _DailyQuestsCard extends StatelessWidget {
     return AnimatedBuilder(
       animation: store,
       builder: (context, _) {
+        final allDone =
+            !store.canClaimDaily && store.quests.every((q) => q.claimed);
         return BrutalCard(
           bg: Colors.white,
           shadow: kShadowSm,
           padding: const EdgeInsets.all(12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Row(
-                children: [
-                  Expanded(
+          child: AnimatedSize(
+            duration: const Duration(milliseconds: 250),
+            alignment: Alignment.topCenter,
+            curve: Curves.easeOut,
+            child: allDone
+                ? const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 4),
                     child: Text(
-                      store.canClaimDaily
-                          ? '🎁 DAILY BONUS READY'
-                          : '🎁 DAILY BONUS CLAIMED',
-                      style: const TextStyle(
+                      '🎁 DAILY & QUESTS ALL DONE · SEE YOU TOMORROW ✓',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
                         fontFamily: 'monospace',
-                        fontSize: 12,
+                        fontSize: 11,
                         fontWeight: FontWeight.w900,
-                        letterSpacing: 1,
                       ),
                     ),
+                  )
+                : Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              store.canClaimDaily
+                                  ? '🎁 DAILY BONUS READY'
+                                  : '🎁 DAILY BONUS CLAIMED',
+                              style: const TextStyle(
+                                fontFamily: 'monospace',
+                                fontSize: 12,
+                                fontWeight: FontWeight.w900,
+                                letterSpacing: 1,
+                              ),
+                            ),
+                          ),
+                          BrutalButton(
+                            label: store.canClaimDaily
+                                ? 'CLAIM +$kDailyBonus💎'
+                                : '✓ DONE',
+                            bg: store.canClaimDaily ? kCanary : Colors.white,
+                            enabled: store.canClaimDaily,
+                            fontSize: 11,
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 8),
+                            onPressed: store.canClaimDaily
+                                ? () async {
+                                    final got = await store.claimDaily();
+                                    if (got != null && context.mounted) {
+                                      _toast(context, '+$got💎 DAILY BONUS!',
+                                          kMint);
+                                    }
+                                  }
+                                : null,
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      const SectionDivider(),
+                      const SizedBox(height: 10),
+                      const Text(
+                        'DAILY QUESTS',
+                        style: TextStyle(
+                          fontFamily: 'monospace',
+                          fontSize: 10,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 2,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      for (final q in store.quests) ...[
+                        _QuestRow(store: store, quest: q, onToast: _toast),
+                        const SizedBox(height: 8),
+                      ],
+                    ],
                   ),
-                  BrutalButton(
-                    label: store.canClaimDaily ? 'CLAIM +$kDailyBonus💎' : '✓ DONE',
-                    bg: store.canClaimDaily ? kCanary : Colors.white,
-                    enabled: store.canClaimDaily,
-                    fontSize: 11,
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 12, vertical: 8),
-                    onPressed: store.canClaimDaily
-                        ? () async {
-                            final got = await store.claimDaily();
-                            if (got != null && context.mounted) {
-                              _toast(context, '+$got💎 DAILY BONUS!', kMint);
-                            }
-                          }
-                        : null,
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              const SectionDivider(),
-              const SizedBox(height: 10),
-              const Text(
-                'DAILY QUESTS',
-                style: TextStyle(
-                  fontFamily: 'monospace',
-                  fontSize: 10,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: 2,
-                ),
-              ),
-              const SizedBox(height: 8),
-              for (final q in store.quests) ...[
-                _QuestRow(store: store, quest: q, onToast: _toast),
-                const SizedBox(height: 8),
-              ],
-            ],
           ),
         );
       },
@@ -2440,6 +2463,7 @@ class ProfilePage extends StatefulWidget {
 
 class _ProfilePageState extends State<ProfilePage> {
   late final TextEditingController _name;
+  late Future<FriendData> _friends;
   String _avatar = '';
 
   @override
@@ -2447,12 +2471,43 @@ class _ProfilePageState extends State<ProfilePage> {
     super.initState();
     _name = TextEditingController(text: widget.store.services.nickname ?? '');
     _avatar = widget.store.services.avatar ?? '';
+    _friends = widget.store.services.fetchFriends();
   }
 
   @override
   void dispose() {
     _name.dispose();
     super.dispose();
+  }
+
+  void _toast(String msg, Color bg) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        backgroundColor: bg,
+        content: Text(
+          msg,
+          textAlign: TextAlign.center,
+          style: const TextStyle(
+            fontFamily: 'monospace',
+            fontWeight: FontWeight.w900,
+            color: kBlack,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _accept(String uid) async {
+    final ok = await widget.store.services.acceptFriend(uid);
+    if (!mounted) return;
+    _toast(ok ? 'FRIEND ADDED ✓' : 'COULD\'T ACCEPT', ok ? kMint : kCoral);
+    setState(() => _friends = widget.store.services.fetchFriends());
+  }
+
+  Future<void> _decline(String uid) async {
+    await widget.store.services.declineFriend(uid);
+    if (!mounted) return;
+    setState(() => _friends = widget.store.services.fetchFriends());
   }
 
   @override
@@ -2527,6 +2582,8 @@ class _ProfilePageState extends State<ProfilePage> {
                         ),
                       ),
                       const SizedBox(height: 16),
+                      _ProfileStatsCard(store: store),
+                      const SizedBox(height: 18),
                       const Text(
                         'NICKNAME (SHOWN ON LEADERBOARD)',
                         style: TextStyle(
@@ -2625,6 +2682,123 @@ class _ProfilePageState extends State<ProfilePage> {
                           );
                         },
                       ),
+                      const SizedBox(height: 22),
+                      Row(
+                        children: [
+                          const Expanded(
+                            child: Text(
+                              'FRIENDS',
+                              style: TextStyle(
+                                fontFamily: 'monospace',
+                                fontSize: 12,
+                                fontWeight: FontWeight.w900,
+                                letterSpacing: 2,
+                              ),
+                            ),
+                          ),
+                          BrutalIconButton(
+                            icon: Icons.refresh,
+                            onPressed: () => setState(
+                                () => _friends = widget.store.services.fetchFriends()),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      FutureBuilder<FriendData>(
+                        future: _friends,
+                        builder: (context, snap) {
+                          if (!store.services.online) {
+                            return const BrutalCard(
+                              bg: Color(0xFFE5E5E5),
+                              child: Padding(
+                                padding: EdgeInsets.all(14),
+                                child: Text(
+                                  'SIGN IN TO CONNECT WITH FRIENDS',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    fontFamily: 'monospace',
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w900,
+                                  ),
+                                ),
+                              ),
+                            );
+                          }
+                          final data = snap.data;
+                          if (data == null) {
+                            return const BrutalCard(
+                              child: Center(
+                                child: Padding(
+                                  padding: EdgeInsets.all(16),
+                                  child: CircularProgressIndicator(),
+                                ),
+                              ),
+                            );
+                          }
+                          final rows = <Widget>[];
+                          if (data.incoming.isNotEmpty) {
+                            rows.add(_friendHeader('REQUESTS IN (${data.incoming.length})'));
+                            for (final f in data.incoming) {
+                              rows.add(Row(
+                                children: [
+                                  Expanded(
+                                    child: _FriendTile(friend: f, pending: true),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  BrutalButton(
+                                    label: 'ACCEPT',
+                                    bg: kMint,
+                                    fontSize: 11,
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 12, vertical: 8),
+                                    onPressed: () => _accept(f.uid),
+                                  ),
+                                  const SizedBox(width: 6),
+                                  BrutalButton(
+                                    label: '✕',
+                                    bg: Colors.white,
+                                    fontSize: 12,
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 10, vertical: 9),
+                                    onPressed: () => _decline(f.uid),
+                                  ),
+                                ],
+                              ));
+                            }
+                          }
+                          rows.add(_friendHeader('FRIENDS (${data.friends.length})'));
+                          if (data.friends.isEmpty) {
+                            rows.add(const BrutalCard(
+                              bg: Colors.white,
+                              shadow: kShadowNone,
+                              padding: EdgeInsets.all(12),
+                              child: Text(
+                                'NO FRIENDS YET.\nPLAY ONLINE AND ADD YOUR RIVALS AFTER A MATCH.',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  fontFamily: 'monospace',
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ));
+                          } else {
+                            for (final f in data.friends) {
+                              rows.add(_FriendTile(friend: f));
+                            }
+                          }
+                          if (data.outgoing.isNotEmpty) {
+                            rows.add(_friendHeader('PENDING OUT (${data.outgoing.length})'));
+                            for (final f in data.outgoing) {
+                              rows.add(_FriendTile(friend: f, pending: true));
+                            }
+                          }
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: rows,
+                          );
+                        },
+                      ),
                     ],
                   );
                 },
@@ -2632,6 +2806,154 @@ class _ProfilePageState extends State<ProfilePage> {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+//  Profile stats + friends helpers
+// ────────────────────────────────────────────────────────────────────────────
+class _ProfileStatsCard extends StatelessWidget {
+  final GameStore store;
+  const _ProfileStatsCard({required this.store});
+
+  @override
+  Widget build(BuildContext context) {
+    final s = store.services;
+    final matches = s.totalGames;
+    final wins = s.totalWins;
+    final draws = s.totalDraws;
+    final winPct = matches == 0 ? 0 : (wins * 100 ~/ matches);
+    return BrutalCard(
+      bg: Colors.white,
+      shadow: kShadowSm,
+      padding: const EdgeInsets.all(14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              _ProfileStat(icon: '🏆', value: '$winPct%', label: 'WIN %'),
+              const SizedBox(width: 8),
+              _ProfileStat(icon: '🎮', value: '$matches', label: 'MATCHES'),
+              const SizedBox(width: 8),
+              _ProfileStat(
+                  icon: '💎', value: '${store.totalGemsEarned}', label: 'GEMS EARNED'),
+            ],
+          ),
+          const SizedBox(height: 10),
+          const SectionDivider(),
+          const SizedBox(height: 6),
+          Text(
+            '$wins WINS · $draws DRAWS',
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontFamily: 'monospace',
+              fontSize: 10,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ProfileStat extends StatelessWidget {
+  final String icon;
+  final String value;
+  final String label;
+  const _ProfileStat({
+    required this.icon,
+    required this.value,
+    required this.label,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          border: Border.all(color: kBlack, width: 1.5),
+        ),
+        child: Column(
+          children: [
+            Text(icon, style: const TextStyle(fontSize: 20)),
+            const SizedBox(height: 4),
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                value,
+                style: const TextStyle(
+                  fontFamily: 'monospace',
+                  fontSize: 16,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              label,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontFamily: 'monospace',
+                fontSize: 8,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 1,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+Widget _friendHeader(String label) => Padding(
+      padding: const EdgeInsets.only(top: 10, bottom: 6),
+      child: Text(
+        label,
+        style: const TextStyle(
+          fontFamily: 'monospace',
+          fontSize: 10,
+          fontWeight: FontWeight.w900,
+          letterSpacing: 2,
+        ),
+      ),
+    );
+
+class _FriendTile extends StatelessWidget {
+  final FriendEntry friend;
+  final bool pending;
+  const _FriendTile({required this.friend, this.pending = false});
+
+  @override
+  Widget build(BuildContext context) {
+    return BrutalCard(
+      bg: pending ? const Color(0xFFF3F4F6) : Colors.white,
+      shadow: kShadowNone,
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      child: Row(
+        children: [
+          Text(friend.emoji, style: const TextStyle(fontSize: 20)),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              friend.name,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontFamily: 'monospace',
+                fontSize: 12,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ),
+          if (pending) const Text('⏳', style: TextStyle(fontSize: 14)),
+        ],
       ),
     );
   }
@@ -3292,13 +3614,21 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
   List<String?> _board = List.filled(9, null);
   String? _oppEmoji;
   String? _oppName;
+  String? _hostUid;
+  String? _guestUid;
   String? _turn;
   String _status = 'open';
   String _winner = '';
+  String _rematchReq = '';
   bool _reported = false;
   bool _dialogShown = false;
+  bool _myProposed = false;
+  bool _incomingShown = false;
+  bool _roundOver = false;
   StreamSubscription? _sub;
 
+  String get _mySide => widget.isHost ? 'host' : 'guest';
+  String? get _oppUid => widget.isHost ? _guestUid : _hostUid;
   bool get _open => _status == 'open';
   bool get _playing => _status == 'playing';
   bool get _myTurn => _playing && _turn == widget.myEmoji;
@@ -3322,6 +3652,8 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
 
   void _onUpdate(Map<String, dynamic>? data) {
     if (!mounted || data == null) return;
+    final wasDone = _status == 'done';
+    final prevReq = _rematchReq;
     setState(() {
       _board = List<String?>.from(
           (data['board'] as List?)?.map((e) => e as String?) ??
@@ -3329,6 +3661,9 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
       _turn = data['turn'] as String?;
       _status = (data['status'] as String?) ?? 'open';
       _winner = (data['winner'] as String?) ?? '';
+      _rematchReq = (data['rematch'] as String?) ?? '';
+      _hostUid = data['hostUid'] as String?;
+      _guestUid = data['guestUid'] as String?;
       final guestE = data['guestEmoji'] as String?;
       _oppEmoji = widget.isHost ? guestE : (data['hostEmoji'] as String?);
       _oppName = widget.isHost
@@ -3339,12 +3674,85 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
         _settle();
       }
     });
-    if (_status == 'done' && !_dialogShown) {
+
+    if (_status == 'done' && !_roundOver) {
+      _roundOver = true;
+      _schedule(() {
+        if (!mounted || _status != 'done') return;
+        final req = _rematchReq;
+        if (req == _mySide || _myProposed) {
+          setState(() => _myProposed = true);
+          return;
+        }
+        if (req.isNotEmpty) {
+          _incomingShown = true;
+          _showIncomingRematchDialog();
+          return;
+        }
+        _dialogShown = true;
+        _showEndDialog();
+      });
+    } else if (_status == 'done' &&
+        !_incomingShown &&
+        !_myProposed &&
+        _rematchReq.isNotEmpty &&
+        _rematchReq != _mySide) {
+      // Rival proposed a rematch while we had just finished.
+      _incomingShown = true;
+      _schedule(_showIncomingRematchDialog);
+    } else if (_status == 'closed' && !_roundOver && !_dialogShown) {
       _dialogShown = true;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) _showEndDialog();
+      _schedule(_showClosedDialog);
+    } else if (_status == 'playing' && wasDone) {
+      // A rematch round just started: reset local state + swap dialogs.
+      _roundOver = false;
+      _reported = false;
+      _myProposed = false;
+      _incomingShown = false;
+      _dialogShown = false;
+      _schedule(() {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            backgroundColor: kMint,
+            content: Text(
+              '🔥 REMATCH! GOOD LUCK',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontFamily: 'monospace',
+                fontWeight: FontWeight.w900,
+                color: kBlack,
+              ),
+            ),
+          ),
+        );
+      });
+    } else if (_roundOver && prevReq == _mySide && _rematchReq.isEmpty) {
+      // My proposal was cleared: the rival declined.
+      _myProposed = false;
+      _schedule(() {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            backgroundColor: kCoral,
+            content: Text(
+              'RIVAL DECLINED THE REMATCH',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontFamily: 'monospace',
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ),
+        );
       });
     }
+  }
+
+  void _schedule(VoidCallback fn) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) fn();
+    });
   }
 
   void _settle() {
@@ -3382,31 +3790,129 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
     Navigator.pop(context);
   }
 
-  Future<void> _rematch() async {
-    final id = await widget.store.services.createOnlineGame(
-      hostEmoji: widget.myEmoji,
-      hostName: widget.store.displayName,
-    );
+  Future<void> _requestRematch() async {
+    final r = await widget.store.services.requestRematch(widget.docId, _mySide);
     if (!mounted) return;
-    if (id == null) {
+    if (r == 'proposed') {
+      setState(() => _myProposed = true);
+    } else if (r != 'started') {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(
-            'OFFLINE — CAN\'T HOST A NEW BATTLE',
+            'CAN\'T REQUEST A REMATCH',
             style: TextStyle(fontFamily: 'monospace', fontWeight: FontWeight.w900),
           ),
         ),
       );
-      return;
     }
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(
-        builder: (_) => OnlineGamePage(
-          store: widget.store,
-          docId: id,
-          isHost: true,
-          myEmoji: widget.myEmoji,
+  }
+
+  void _showClosedDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      barrierColor: kBlack.withValues(alpha: 0.6),
+      builder: (c) => Dialog(
+        backgroundColor: Colors.transparent,
+        child: BrutalCard(
+          bg: kCoral,
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('❌', style: TextStyle(fontSize: 56)),
+              const SizedBox(height: 8),
+              const Text(
+                'RIVAL LEFT THE MATCH',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontFamily: 'monospace',
+                  fontSize: 20,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 2,
+                ),
+              ),
+              const SizedBox(height: 16),
+              BrutalButton(
+                label: 'OK',
+                bg: Colors.white,
+                onPressed: () => Navigator.pop(c),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showIncomingRematchDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      barrierColor: kBlack.withValues(alpha: 0.6),
+      builder: (c) => Dialog(
+        backgroundColor: Colors.transparent,
+        child: BrutalCard(
+          bg: kMint,
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('⚡', style: TextStyle(fontSize: 56)),
+              const SizedBox(height: 8),
+              const Text(
+                'REMATCH REQUEST!',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontFamily: 'monospace',
+                  fontSize: 18,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 2,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                '${_oppName ?? 'RIVAL'} WANTS ANOTHER ROUND',
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontFamily: 'monospace',
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 16),
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    BrutalButton(
+                      label: 'ACCEPT',
+                      bg: kCanary,
+                      onPressed: () {
+                        _incomingShown = false;
+                        Navigator.pop(c);
+                        _requestRematch();
+                      },
+                    ),
+                    const SizedBox(width: 10),
+                    BrutalButton(
+                      label: 'DECLINE',
+                      bg: Colors.white,
+                      fontSize: 15,
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 20, vertical: 14),
+                      onPressed: () {
+                        _incomingShown = false;
+                        Navigator.pop(c);
+                        widget.store.services.declineRematch(widget.docId);
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -3454,6 +3960,20 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
                 ),
               ],
               const SizedBox(height: 16),
+              if (_canAddFriend) ...[
+                BrutalButton(
+                  label: '➕ ADD FRIEND',
+                  bg: kCanary,
+                  fontSize: 15,
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 20, vertical: 12),
+                  onPressed: () {
+                    Navigator.pop(context);
+                    _addFriend();
+                  },
+                ),
+                const SizedBox(height: 10),
+              ],
               FittedBox(
                 fit: BoxFit.scaleDown,
                 child: Row(
@@ -3462,8 +3982,9 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
                     BrutalButton(
                       label: 'REMATCH',
                       onPressed: () {
+                        _dialogShown = false;
                         Navigator.pop(context);
-                        _rematch();
+                        _requestRematch();
                       },
                     ),
                     const SizedBox(width: 10),
@@ -3474,6 +3995,7 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
                       padding: const EdgeInsets.symmetric(
                           horizontal: 20, vertical: 14),
                       onPressed: () {
+                        _dialogShown = false;
                         Navigator.pop(context);
                         _leave();
                       },
@@ -3482,6 +4004,36 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
                 ),
               ),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  bool get _canAddFriend =>
+      widget.store.services.online &&
+      _oppUid != null &&
+      _oppUid != widget.store.services.user?.uid;
+
+  Future<void> _addFriend() async {
+    final uid = _oppUid;
+    if (uid == null) return;
+    final ok = await widget.store.services.sendFriendRequest(
+      uid,
+      name: _oppName ?? 'Rival',
+      emoji: _oppEmoji ?? '🐶',
+    );
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        backgroundColor: ok ? kMint : kCoral,
+        content: Text(
+          ok ? 'FRIEND REQUEST SENT ✓' : 'COULD\'T SEND — SIGN IN FIRST',
+          textAlign: TextAlign.center,
+          style: const TextStyle(
+            fontFamily: 'monospace',
+            fontWeight: FontWeight.w900,
+            color: kBlack,
           ),
         ),
       ),
@@ -3548,19 +4100,40 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
                         ),
                       )
                     else if (_status == 'done')
-                      BrutalCard(
-                        bg: kMint,
-                        child: Text(
-                          _winner.isNotEmpty && _winner == widget.myEmoji
-                              ? '🏆 YOU WIN! +${widget.store.winReward}💎'
-                              : (_winner.isNotEmpty ? 'YOU LOSE' : 'DRAW'),
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(
-                            fontFamily: 'monospace',
-                            fontSize: 13,
-                            fontWeight: FontWeight.w900,
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          BrutalCard(
+                            bg: kMint,
+                            child: Text(
+                              _winner.isNotEmpty &&
+                                      _winner == widget.myEmoji
+                                  ? '🏆 YOU WIN! +${widget.store.winReward}💎'
+                                  : (_winner.isNotEmpty ? 'YOU LOSE' : 'DRAW'),
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(
+                                fontFamily: 'monospace',
+                                fontSize: 13,
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
                           ),
-                        ),
+                          if (_myProposed || _rematchReq == _mySide) ...[
+                            const SizedBox(height: 8),
+                            BrutalCard(
+                              bg: kCanarySoft,
+                              child: const Text(
+                                '⏳ WAITING FOR RIVAL TO ACCEPT REMATCH…',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  fontFamily: 'monospace',
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
                       )
                     else if (_status == 'closed')
                       BrutalCard(
