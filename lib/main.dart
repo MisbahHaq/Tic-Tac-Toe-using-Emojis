@@ -115,6 +115,8 @@ class _HomeContent extends StatelessWidget {
           onStore: () => pushBrutal(context, StorePage(store: store)),
           onLeaderboard: () =>
               pushBrutal(context, LeaderboardPage(store: store)),
+          onFeed: () => pushBrutal(context, MatchFeedPage(store: store)),
+          onProfile: () => pushBrutal(context, ProfilePage(store: store)),
         ),
         const SizedBox(height: 32),
         FittedBox(
@@ -185,8 +187,180 @@ class _HomeContent extends StatelessWidget {
           onPressed: () =>
               pushBrutal(context, EmojiSelectionPage(store: store, mode: mode)),
         ),
+        const SizedBox(height: 10),
+        BrutalButton(
+          label: store.user != null ? '⚔ PLAY ONLINE · PVP' : '⚔ ONLINE PVP — SIGN IN TO PLAY',
+          bg: store.user != null ? kMint : const Color(0xFFE5E5E5),
+          enabled: store.user != null,
+          onPressed: store.user != null
+              ? () => pushBrutal(context, OnlineLobbyPage(store: store))
+              : null,
+        ),
+        const SizedBox(height: 16),
+        _DailyQuestsCard(store: store),
         const SizedBox(height: 16),
         _SignInChip(store: store),
+      ],
+    );
+  }
+}
+
+class _DailyQuestsCard extends StatelessWidget {
+  final GameStore store;
+  const _DailyQuestsCard({required this.store});
+
+  void _toast(BuildContext context, String msg, Color bg) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        backgroundColor: bg,
+        content: Text(
+          msg,
+          style: const TextStyle(
+            fontFamily: 'monospace',
+            fontWeight: FontWeight.w900,
+            color: kBlack,
+          ),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: store,
+      builder: (context, _) {
+        return BrutalCard(
+          bg: Colors.white,
+          shadow: kShadowSm,
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      store.canClaimDaily
+                          ? '🎁 DAILY BONUS READY'
+                          : '🎁 DAILY BONUS CLAIMED',
+                      style: const TextStyle(
+                        fontFamily: 'monospace',
+                        fontSize: 12,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 1,
+                      ),
+                    ),
+                  ),
+                  BrutalButton(
+                    label: store.canClaimDaily ? 'CLAIM +$kDailyBonus💎' : '✓ DONE',
+                    bg: store.canClaimDaily ? kCanary : Colors.white,
+                    enabled: store.canClaimDaily,
+                    fontSize: 11,
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 12, vertical: 8),
+                    onPressed: store.canClaimDaily
+                        ? () {
+                            final got = store.claimDaily();
+                            if (got != null) {
+                              _toast(context, '+$got💎 DAILY BONUS!', kMint);
+                            }
+                          }
+                        : null,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              const SectionDivider(),
+              const SizedBox(height: 10),
+              const Text(
+                'DAILY QUESTS',
+                style: TextStyle(
+                  fontFamily: 'monospace',
+                  fontSize: 10,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 2,
+                ),
+              ),
+              const SizedBox(height: 8),
+              for (final q in store.quests) ...[
+                _QuestRow(store: store, quest: q, onToast: _toast),
+                const SizedBox(height: 8),
+              ],
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _QuestRow extends StatelessWidget {
+  final GameStore store;
+  final QuestStatus quest;
+  final void Function(BuildContext, String, Color) onToast;
+  const _QuestRow({
+    required this.store,
+    required this.quest,
+    required this.onToast,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final progress = quest.target == 0
+        ? 1.0
+        : (quest.current / quest.target).clamp(0.0, 1.0);
+    return Row(
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                quest.label,
+                style: const TextStyle(
+                  fontFamily: 'monospace',
+                  fontSize: 10,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Container(
+                height: 12,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  border: Border.all(color: kBlack, width: 1.5),
+                ),
+                child: FractionallySizedBox(
+                  alignment: Alignment.centerLeft,
+                  widthFactor: progress,
+                  child: Container(
+                    color: quest.done ? kMint : kCanary,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(width: 10),
+        if (quest.claimed)
+          const Text('✓', style: TextStyle(fontSize: 18))
+        else
+          BrutalButton(
+            label: quest.done ? '+${quest.reward}💎' : '${quest.current}/${quest.target}',
+            bg: quest.done ? kMint : Colors.white,
+            enabled: quest.done,
+            fontSize: 11,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            onPressed: quest.done
+                ? () {
+                    final got = store.claimQuest(quest.id);
+                    if (got > 0) {
+                      onToast(context, 'QUEST COMPLETE +$got💎', kMint);
+                    }
+                  }
+                : null,
+          ),
       ],
     );
   }
@@ -320,6 +494,8 @@ class _EmojiSelectionBody extends StatefulWidget {
 class _EmojiSelectionBodyState extends State<_EmojiSelectionBody> {
   late String _p1 = '🐶';
   late String _p2 = '🐼';
+  int _blitz = 0;
+  bool _ranked = false;
 
   @override
   Widget build(BuildContext context) {
@@ -397,6 +573,69 @@ class _EmojiSelectionBodyState extends State<_EmojiSelectionBody> {
               ),
             ],
             const SizedBox(height: 18),
+            BrutalCard(
+              bg: kSky,
+              shadow: kShadowSm,
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const Text(
+                    '⏱ BLITZ CLOCK',
+                    style: TextStyle(
+                      fontFamily: 'monospace',
+                      fontSize: 11,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 2,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      for (final s in const [0, 15, 30, 60])
+                        _OptionChip(
+                          active: _blitz == s,
+                          label: s == 0 ? 'OFF' : '${s}s',
+                          onTap: () => setState(() => _blitz = s),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      const Expanded(
+                        child: Text(
+                          '⚔ RANKED',
+                          style: TextStyle(
+                            fontFamily: 'monospace',
+                            fontSize: 12,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 1.5,
+                          ),
+                        ),
+                      ),
+                      const Text(
+                        'x2💎 REWARD',
+                        style: TextStyle(
+                          fontFamily: 'monospace',
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      _OptionChip(
+                        active: _ranked,
+                        label: _ranked ? 'ON' : 'OFF',
+                        onTap: () => setState(() => _ranked = !_ranked),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 18),
             BrutalButton(
               label: widget.mode.label,
               onPressed: () => pushBrutal(
@@ -406,6 +645,8 @@ class _EmojiSelectionBodyState extends State<_EmojiSelectionBody> {
                   mode: widget.mode,
                   p1Emoji: _p1,
                   p2Emoji: widget.mode.isAi ? kAiEmoji : _p2,
+                  blitzSeconds: _blitz,
+                  ranked: _ranked,
                 ),
               ),
             ),
@@ -495,6 +736,38 @@ class _PickerHeader extends StatelessWidget {
   }
 }
 
+class _OptionChip extends StatelessWidget {
+  final String label;
+  final bool active;
+  final VoidCallback onTap;
+  const _OptionChip({required this.label, required this.active, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 100),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        decoration: BoxDecoration(
+          color: active ? kMint : Colors.white,
+          border: Border.all(color: kBlack, width: 2),
+          boxShadow: active ? kShadowNone : kShadowSm,
+        ),
+        child: Text(
+          label,
+          style: const TextStyle(
+            fontFamily: 'monospace',
+            fontSize: 12,
+            fontWeight: FontWeight.w900,
+            color: kBlack,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _EmojiGrid extends StatelessWidget {
   final GameStore store;
   final String selected;
@@ -549,12 +822,16 @@ class GamePage extends StatefulWidget {
   final GameMode mode;
   final String p1Emoji;
   final String p2Emoji;
+  final int blitzSeconds;
+  final bool ranked;
   const GamePage({
     super.key,
     required this.store,
     required this.mode,
     required this.p1Emoji,
     required this.p2Emoji,
+    this.blitzSeconds = 0,
+    this.ranked = false,
   });
 
   @override
@@ -568,24 +845,65 @@ class _GamePageState extends State<GamePage> {
   bool _reported = false;
   List<int>? _winningLine;
   Timer? _aiTimer;
+  Timer? _tick;
+  int? _secondsLeft;
+  final List<int> _moves = [];
 
   bool get _isAiTurn =>
       widget.mode.isAi && _current == widget.p2Emoji;
 
   @override
+  void initState() {
+    super.initState();
+    _startTurnClock();
+  }
+
+  @override
   void dispose() {
     _aiTimer?.cancel();
+    _tick?.cancel();
     super.dispose();
   }
 
   void _reset() {
+    _aiTimer?.cancel();
+    _tick?.cancel();
     setState(() {
       _board = List.filled(9, null);
       _current = widget.p1Emoji;
       _over = false;
       _reported = false;
       _winningLine = null;
+      _moves.clear();
     });
+    _startTurnClock();
+  }
+
+  void _startTurnClock() {
+    _tick?.cancel();
+    if (widget.blitzSeconds <= 0 || _over || _isAiTurn) {
+      _secondsLeft = null;
+      return;
+    }
+    _secondsLeft = widget.blitzSeconds;
+    _tick = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (!mounted || _over || widget.blitzSeconds <= 0) {
+        _tick?.cancel();
+        return;
+      }
+      setState(() => _secondsLeft = (_secondsLeft ?? 1) - 1);
+      if (_secondsLeft == 0) {
+        _tick?.cancel();
+        _onTimeout();
+      }
+    });
+  }
+
+  void _onTimeout() {
+    if (_over) return;
+    final timedOutP1 = _current == widget.p1Emoji;
+    setState(() => _over = true);
+    _finishRound(p1Won: !timedOutP1, p2Won: timedOutP1);
   }
 
   Future<void> _onCell(int i) async {
@@ -594,6 +912,7 @@ class _GamePageState extends State<GamePage> {
   }
 
   void _move(int i, String mark) {
+    _moves.add(i);
     setState(() {
       _board[i] = mark;
       _current = mark == widget.p1Emoji ? widget.p2Emoji : widget.p1Emoji;
@@ -602,6 +921,8 @@ class _GamePageState extends State<GamePage> {
     if (!_over && _isAiTurn) {
       _aiTimer?.cancel();
       _aiTimer = Timer(const Duration(milliseconds: 420), _aiMove);
+    } else if (!_over) {
+      _startTurnClock();
     }
   }
 
@@ -682,13 +1003,39 @@ class _GamePageState extends State<GamePage> {
   void _finishRound({required bool p1Won, required bool p2Won}) {
     if (_reported) return;
     _reported = true;
-    widget.store.reportRound(p1Win: p1Won, p2Win: p2Won);
     final playerWon = widget.mode.isAi ? p1Won : p1Won || p2Won;
-    if (playerWon) widget.store.addDiamonds(kWinReward);
-    _showResult(p1Won: p1Won, p2Won: p2Won);
+    widget.store.reportRound(
+      p1Win: p1Won,
+      p2Win: p2Won,
+      playerWon: playerWon,
+    );
+    final reward = playerWon ? widget.store.winReward * (widget.ranked ? 2 : 1) : 0;
+    if (reward > 0) widget.store.addDiamonds(reward);
+    widget.store.services.recordMatch(
+      mode: widget.mode.label,
+      p1Emoji: widget.p1Emoji,
+      p2Emoji: widget.p2Emoji,
+      p1Name: widget.store.displayName,
+      p2Name: widget.mode.isAi ? 'CPU' : widget.store.displayName,
+      winner: p1Won ? 'p1' : (p2Won ? 'p2' : 'draw'),
+      moves: List.of(_moves),
+    );
+    _showResult(
+      p1Won: p1Won,
+      p2Won: p2Won,
+      rewardEarned: reward,
+      streak: widget.store.winStreak,
+      mult: widget.store.streakMultiplier,
+    );
   }
 
-  void _showResult({required bool p1Won, required bool p2Won}) {
+  void _showResult({
+    required bool p1Won,
+    required bool p2Won,
+    required int rewardEarned,
+    required int streak,
+    required int mult,
+  }) {
     final isDraw = !p1Won && !p2Won;
     String title;
     String emoji;
@@ -726,16 +1073,26 @@ class _GamePageState extends State<GamePage> {
                 ),
               ),
               const SizedBox(height: 6),
-              if (p1Won) ...[
-                const Text(
-                  '+💎 REWARD',
-                  style: TextStyle(
+              if (rewardEarned > 0) ...[
+                Text(
+                  '+$rewardEarned💎',
+                  style: const TextStyle(
                     fontFamily: 'monospace',
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w900,
                   ),
                 ),
-                const SizedBox(height: 2),
+                if (streak >= 2) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    '🔥 $streak-WIN STREAK (x$mult)',
+                    style: const TextStyle(
+                      fontFamily: 'monospace',
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
               ],
               const SizedBox(height: 16),
               FittedBox(
@@ -744,7 +1101,7 @@ class _GamePageState extends State<GamePage> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     BrutalButton(
-                      label: 'PLAY AGAIN',
+                      label: 'REMATCH',
                       onPressed: () {
                         Navigator.pop(context);
                         _reset();
@@ -820,12 +1177,17 @@ class _GamePageState extends State<GamePage> {
                       p2: widget.p2Emoji,
                       current: _current,
                       isAiMode: widget.mode.isAi,
+                      timeLeft: _secondsLeft,
+                      blitzSeconds: widget.blitzSeconds,
+                      ranked: widget.ranked,
                     ),
                     const SizedBox(height: 16),
                     _Board(
                       board: _board,
                       winningLine: _winningLine,
                       onTap: _onCell,
+                      theme: widget.store.theme,
+                      frame: widget.store.frame,
                     ),
                     const SizedBox(height: 16),
                     BrutalButton(
@@ -849,11 +1211,17 @@ class _TurnStrip extends StatelessWidget {
   final String p2;
   final String current;
   final bool isAiMode;
+  final int? timeLeft;
+  final int blitzSeconds;
+  final bool ranked;
   const _TurnStrip({
     required this.p1,
     required this.p2,
     required this.current,
     required this.isAiMode,
+    this.timeLeft,
+    this.blitzSeconds = 0,
+    this.ranked = false,
   });
 
   @override
@@ -872,7 +1240,8 @@ class _TurnStrip extends StatelessWidget {
             child: FittedBox(
               fit: BoxFit.scaleDown,
               child: Text(
-                label,
+                '${label}${ranked ? ' · ⚔' : ''}'
+                '${blitzSeconds > 0 ? ' · ⏱ ${timeLeft ?? blitzSeconds}' : ''}',
                 style: const TextStyle(
                   fontFamily: 'monospace',
                   fontSize: 14,
@@ -894,50 +1263,64 @@ class _Board extends StatelessWidget {
   final List<String?> board;
   final List<int>? winningLine;
   final ValueChanged<int> onTap;
+  final BoardTheme theme;
+  final BoardFrame frame;
   const _Board({
     required this.board,
     required this.winningLine,
     required this.onTap,
+    required this.theme,
+    required this.frame,
   });
 
   @override
   Widget build(BuildContext context) {
-    return AspectRatio(
-      aspectRatio: 1,
-      child: GridView.builder(
-        physics: const NeverScrollableScrollPhysics(),
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 3,
-          mainAxisSpacing: 8,
-          crossAxisSpacing: 8,
-        ),
-        itemCount: 9,
-        itemBuilder: (context, i) {
-          final mark = board[i];
-          final isWin = winningLine?.contains(i) ?? false;
-          return GestureDetector(
-            key: ValueKey('cell-$i'),
-            onTap: () => onTap(i),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 120),
-              decoration: BoxDecoration(
-                color: isWin
-                    ? kCanary
-                    : (mark == null ? Colors.white : gradientColor(mark)),
-                border: Border.all(color: kBlack, width: 2),
-                boxShadow: const [
-                  BoxShadow(color: kBlack, offset: Offset(4, 4)),
-                ],
-              ),
-              child: Center(
-                child: Text(
-                  mark ?? '',
-                  style: const TextStyle(fontSize: 40),
+    return Container(
+      padding: EdgeInsets.all(frame.width),
+      decoration: BoxDecoration(
+        color: theme.boardBg,
+        border: Border.all(color: frame.color, width: frame.width),
+        boxShadow: const [
+          BoxShadow(color: kBlack, offset: Offset(6, 6)),
+        ],
+      ),
+      child: AspectRatio(
+        aspectRatio: 1,
+        child: GridView.builder(
+          physics: const NeverScrollableScrollPhysics(),
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 3,
+            mainAxisSpacing: 8,
+            crossAxisSpacing: 8,
+          ),
+          itemCount: 9,
+          itemBuilder: (context, i) {
+            final mark = board[i];
+            final isWin = winningLine?.contains(i) ?? false;
+            return GestureDetector(
+              key: ValueKey('cell-$i'),
+              onTap: () => onTap(i),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 120),
+                decoration: BoxDecoration(
+                  color: isWin
+                      ? theme.accent
+                      : (mark == null ? theme.cellBg : gradientColor(mark)),
+                  border: Border.all(color: kBlack, width: 2),
+                  boxShadow: const [
+                    BoxShadow(color: kBlack, offset: Offset(4, 4)),
+                  ],
+                ),
+                child: Center(
+                  child: Text(
+                    mark ?? '',
+                    style: const TextStyle(fontSize: 40),
+                  ),
                 ),
               ),
-            ),
-          );
-        },
+            );
+          },
+        ),
       ),
     );
   }

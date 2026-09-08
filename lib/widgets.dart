@@ -8,11 +8,15 @@ class HeaderRow extends StatelessWidget {
   final GameStore store;
   final VoidCallback onStore;
   final VoidCallback onLeaderboard;
+  final VoidCallback onFeed;
+  final VoidCallback onProfile;
   const HeaderRow({
     super.key,
     required this.store,
     required this.onStore,
     required this.onLeaderboard,
+    required this.onFeed,
+    required this.onProfile,
   });
 
   @override
@@ -36,9 +40,13 @@ class HeaderRow extends StatelessWidget {
         const SizedBox(width: 8),
         DiamondBadge(diamonds: store.diamonds),
         const SizedBox(width: 8),
-        BrutalIconButton(icon: Icons.emoji_events_outlined, onPressed: onLeaderboard),
+        BrutalIconButton(icon: Icons.history, onPressed: onFeed),
         const SizedBox(width: 8),
         BrutalIconButton(icon: Icons.store_outlined, onPressed: onStore),
+        const SizedBox(width: 8),
+        BrutalIconButton(icon: Icons.emoji_events_outlined, onPressed: onLeaderboard),
+        const SizedBox(width: 8),
+        BrutalIconButton(icon: Icons.person_outline, onPressed: onProfile),
         if (isOnline) ...[
           const SizedBox(width: 8),
           const Text('⚡', style: TextStyle(fontSize: 18)),
@@ -130,7 +138,7 @@ class ScoreBar extends StatelessWidget {
         if (store.user != null)
           Expanded(
             child: Text(
-              store.user!.name,
+              store.displayName,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
@@ -141,10 +149,14 @@ class ScoreBar extends StatelessWidget {
             ),
           ),
         _Stat(label: 'W', value: '${s.totalWins}'),
-        const SizedBox(width: 8),
+        const SizedBox(width: 6),
         _Stat(label: 'D', value: '${s.totalDraws}'),
-        const SizedBox(width: 8),
+        const SizedBox(width: 6),
         _Stat(label: 'G', value: '${s.totalGames}'),
+        if (store.winStreak > 0) ...[
+          const SizedBox(width: 6),
+          _Stat(label: '🔥', value: '${store.winStreak}'),
+        ],
       ],
     );
   }
