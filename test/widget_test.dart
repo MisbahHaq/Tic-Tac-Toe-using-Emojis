@@ -4,23 +4,33 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:game/main.dart';
 
 void main() {
-  testWidgets('home page renders and mode can be selected', (tester) async {
+  testWidgets('home shows custom game and opens setup', (tester) async {
     await tester.pumpWidget(const EmojiTicTacToe());
     await tester.pumpAndSettle();
 
-    expect(find.text('PLAY ▶'), findsOneWidget);
     expect(find.text('EMOJI\nTIC·TAC·TOE'), findsWidgets);
+    expect(find.text('🎮 CUSTOM GAME'), findsOneWidget);
+    expect(find.textContaining('ONLINE PVP'), findsNothing);
+
+    await tester.tap(find.text('🎮 CUSTOM GAME'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('CUSTOM GAME'), findsOneWidget);
     expect(find.text('choose mode'), findsOneWidget);
     expect(find.text('2 PLAYER'), findsOneWidget);
     expect(find.text('VS AI · EASY'), findsOneWidget);
     expect(find.text('VS AI · HARD'), findsOneWidget);
+    expect(find.text('⏱ BLITZ CLOCK'), findsOneWidget);
+    expect(find.text('⚔ RANKED'), findsOneWidget);
 
+    await tester.ensureVisible(find.text('VS AI · HARD'));
+    await tester.pump();
     await tester.tap(find.text('VS AI · HARD'));
     await tester.pump();
 
-    await tester.ensureVisible(find.text('PLAY ▶'));
+    await tester.ensureVisible(find.text('NEXT → PICK FIGHTERS'));
     await tester.pump();
-    await tester.tap(find.text('PLAY ▶'));
+    await tester.tap(find.text('NEXT → PICK FIGHTERS'));
     await tester.pumpAndSettle();
 
     expect(find.text('PICK YOUR FIGHTERS'), findsOneWidget);
@@ -30,9 +40,12 @@ void main() {
     await tester.pumpWidget(const EmojiTicTacToe());
     await tester.pumpAndSettle();
 
-    await tester.ensureVisible(find.text('PLAY ▶'));
+    await tester.tap(find.text('🎮 CUSTOM GAME'));
+    await tester.pumpAndSettle();
+
+    await tester.ensureVisible(find.text('NEXT → PICK FIGHTERS'));
     await tester.pump();
-    await tester.tap(find.text('PLAY ▶'));
+    await tester.tap(find.text('NEXT → PICK FIGHTERS'));
     await tester.pumpAndSettle();
 
     expect(find.text('PICK YOUR FIGHTERS'), findsOneWidget);
@@ -71,9 +84,14 @@ void main() {
     await tester.pumpWidget(const EmojiTicTacToe());
     await tester.pumpAndSettle();
 
-    await tester.ensureVisible(find.text('PLAY ▶'));
+    await tester.ensureVisible(find.text('🎮 CUSTOM GAME'));
     await tester.pump();
-    await tester.tap(find.text('PLAY ▶'));
+    await tester.tap(find.text('🎮 CUSTOM GAME'));
+    await tester.pumpAndSettle();
+
+    await tester.ensureVisible(find.text('NEXT → PICK FIGHTERS'));
+    await tester.pump();
+    await tester.tap(find.text('NEXT → PICK FIGHTERS'));
     await tester.pumpAndSettle();
 
     await tester.ensureVisible(find.text('2 PLAYER'));
@@ -99,7 +117,8 @@ void main() {
     expect(find.text('REMATCH'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
-testWidgets('home shows daily quests and online pvp entry', (tester) async {
+
+  testWidgets('home shows daily quests and custom game entry', (tester) async {
     await tester.pumpWidget(const EmojiTicTacToe());
     await tester.pumpAndSettle();
 
@@ -107,12 +126,11 @@ testWidgets('home shows daily quests and online pvp entry', (tester) async {
     expect(find.text('WIN 3 MATCHES'), findsOneWidget);
     expect(find.text('PLAY 5 MATCHES'), findsOneWidget);
     expect(find.text('HIT A 3-WIN STREAK'), findsOneWidget);
+    expect(find.text('🎮 CUSTOM GAME'), findsOneWidget);
     // Online PvP entry is only shown when signed in.
     expect(find.textContaining('ONLINE PVP'), findsNothing);
 
-    await tester.ensureVisible(find.text('PLAY ▶'));
-    await tester.pump();
-    await tester.tap(find.text('PLAY ▶'));
+    await tester.tap(find.text('🎮 CUSTOM GAME'));
     await tester.pumpAndSettle();
 
     expect(find.text('⏱ BLITZ CLOCK'), findsOneWidget);
