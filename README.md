@@ -7,7 +7,14 @@ https://github.com/user-attachments/assets/3e689115-ff6e-41d8-bc0a-d4cc4d367c86
 
 ## 🚀 Features
 - 🎨 Emoji-based Tic Tac Toe gameplay
-- 👥 2 Player mode + 🤖 VS AI (Easy = random, Hard = minimax)
+- 👥 2 Player mode + 🤖 VS AI (Easy = random, Hard = minimax) + ⚔️ online PvP
+- ⏱ Blitz clocks (15/30/60s) + ⚔️ ranked mode (x2 💎)
+- 🔥 Win streak multiplier (3+ wins = x2, 7+ = x3 💎)
+- 🎁 Daily login bonus + daily quests (win games, play games, hit a streak)
+- 🎨 Unlockable board themes & frames (backgrounds) for 💎
+- 👤 Custom profile: nickname + avatar sticker
+- 🌍 Match feed with per-match replay
+- 📈 Weekly + monthly leaderboard seasons
 - 💎 Win matches to earn diamonds; spend them to unlock new fighters in the store
 - 📱 Responsive layout (phones, tablets, web)
 - 🔐 Google Sign-In + 🌐 cloud leaderboard (falls back to local totals when Firebase isn't set up or you're offline)
@@ -52,13 +59,29 @@ once (takes ~3 minutes):
    rules_version = '2';
    service cloud.firestore {
      match /databases/{database}/documents {
-       match /leaderboard/{userId} {
+       // Leaderboard seasons (weekly_* / monthly_* share the same shape)
+       match /{coll=weekly_*}/{userId} {
          allow read: if true;
          allow write: if request.auth != null && request.auth.uid == userId;
+       }
+       match /{coll=monthly_*}/{userId} {
+         allow read: if true;
+         allow write: if request.auth != null && request.auth.uid == userId;
+       }
+       // Recent matches feed (match ids are derived from game ids, not uid)
+       match /recentMatches/{matchId} {
+         allow read: if true;
+         allow write: if request.auth != null;
+       }
+       // Online PvP lobby: any signed-in player can create/join/move
+       match /onlineOpen/{gameId} {
+         allow read, write: if request.auth != null;
        }
      }
    }
    ```
+   The app only reads `weekly_*`/`monthly_*`, `recentMatches`, and `onlineOpen` —
+   collections are created automatically on first write.
 
 ### 4. Add config files
 - **Web**: already done — `lib/firebase_options.dart` contains the

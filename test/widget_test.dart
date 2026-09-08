@@ -96,7 +96,61 @@ void main() {
     await play(2);
     await play(8);
 
-    expect(find.text('PLAY AGAIN'), findsOneWidget);
+    expect(find.text('REMATCH'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+testWidgets('home shows daily quests and online pvp entry', (tester) async {
+    await tester.pumpWidget(const EmojiTicTacToe());
+    await tester.pumpAndSettle();
+
+    expect(find.text('DAILY QUESTS'), findsOneWidget);
+    expect(find.text('WIN 3 MATCHES'), findsOneWidget);
+    expect(find.text('PLAY 5 MATCHES'), findsOneWidget);
+    expect(find.text('HIT A 3-WIN STREAK'), findsOneWidget);
+    expect(find.text('⚔ ONLINE PVP — SIGN IN TO PLAY'), findsOneWidget);
+
+    await tester.ensureVisible(find.text('PLAY ▶'));
+    await tester.pump();
+    await tester.tap(find.text('PLAY ▶'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('⏱ BLITZ CLOCK'), findsOneWidget);
+    expect(find.text('⚔ RANKED'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('themes page renders without overflow on narrow screen',
+      (tester) async {
+    tester.view.physicalSize = const Size(320, 640);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(const EmojiTicTacToe());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.store_outlined));
+    await tester.pumpAndSettle();
+
+    await tester.ensureVisible(find.text('🎨 BOARD STYLE →'));
+    await tester.pump();
+    await tester.tap(find.text('🎨 BOARD STYLE →'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('BOARD STYLE'), findsOneWidget);
+    expect(find.text('BACKGROUNDS'), findsOneWidget);
+    expect(find.text('FRAMES'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('match feed shows empty state', (tester) async {
+    await tester.pumpWidget(const EmojiTicTacToe());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.history));
+    await tester.pumpAndSettle();
+
+    expect(find.text('RECENT MATCHES'), findsOneWidget);
+    expect(find.textContaining('NO MATCHES'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 }

@@ -116,7 +116,6 @@ class _HomeContent extends StatelessWidget {
           onLeaderboard: () =>
               pushBrutal(context, LeaderboardPage(store: store)),
           onFeed: () => pushBrutal(context, MatchFeedPage(store: store)),
-          onProfile: () => pushBrutal(context, ProfilePage(store: store)),
         ),
         const SizedBox(height: 32),
         FittedBox(
@@ -427,7 +426,14 @@ class _SignInChip extends StatelessWidget {
       shadow: kShadowSm,
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       child: GestureDetector(
-        onTap: ready ? () => pushBrutal(context, SignInPage(store: store)) : null,
+        onTap: ready
+            ? () => pushBrutal(
+                context,
+                user != null
+                    ? ProfilePage(store: store)
+                    : SignInPage(store: store),
+              )
+            : null,
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
@@ -1240,7 +1246,7 @@ class _TurnStrip extends StatelessWidget {
             child: FittedBox(
               fit: BoxFit.scaleDown,
               child: Text(
-                '${label}${ranked ? ' · ⚔' : ''}'
+                '$label${ranked ? ' · ⚔' : ''}'
                 '${blitzSeconds > 0 ? ' · ⏱ ${timeLeft ?? blitzSeconds}' : ''}',
                 style: const TextStyle(
                   fontFamily: 'monospace',
@@ -1402,6 +1408,16 @@ class StorePage extends StatelessWidget {
                             fontWeight: FontWeight.w700,
                           ),
                         ),
+                      ),
+                      const SizedBox(height: 16),
+                      BrutalButton(
+                        label: '🎨 BOARD STYLE →',
+                        bg: kSky,
+                        fontSize: 13,
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 14, vertical: 10),
+                        onPressed: () =>
+                            pushBrutal(context, ThemesPage(store: store)),
                       ),
                       const SizedBox(height: 16),
                       GridView.builder(
@@ -1686,13 +1702,14 @@ class LeaderboardPage extends StatefulWidget {
 class _LeaderboardPageState extends State<LeaderboardPage> {
   late Future<List<LeaderboardEntry>> _future;
   String? _lastUid;
+  LeaderboardPeriod _period = LeaderboardPeriod.weekly;
 
   @override
   void initState() {
     super.initState();
     _lastUid = widget.store.user?.uid;
     widget.store.addListener(_onStoreChanged);
-    _future = widget.store.services.fetchLeaderboard();
+    _future = widget.store.services.fetchLeaderboard(period: _period);
   }
 
   @override
@@ -1711,7 +1728,7 @@ class _LeaderboardPageState extends State<LeaderboardPage> {
 
   void _refresh() {
     setState(() {
-      _future = widget.store.services.fetchLeaderboard();
+      _future = widget.store.services.fetchLeaderboard(period: _period);
     });
   }
 
@@ -1750,6 +1767,29 @@ class _LeaderboardPageState extends State<LeaderboardPage> {
                         onPressed: _refresh,
                       ),
                     ],
+                  ),
+                  const SizedBox(height: 16),
+                  Builder(
+                    builder: (context) {
+                      return Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        alignment: WrapAlignment.center,
+                        children: [
+                          for (final p in LeaderboardPeriod.values)
+                            _OptionChip(
+                              active: _period == p,
+                              label: p == LeaderboardPeriod.weekly
+                                  ? 'WEEKLY'
+                                  : 'MONTHLY',
+                              onTap: () {
+                                setState(() => _period = p);
+                                _refresh();
+                              },
+                            ),
+                        ],
+                      );
+                    },
                   ),
                   const SizedBox(height: 16),
                   if (!widget.store.firebaseReady)
@@ -1921,4 +1961,1463 @@ class _RankRow extends StatelessWidget {
       ),
     );
   }
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+//  Themes & frames store
+// ────────────────────────────────────────────────────────────────────────────
+class ThemesPage extends StatelessWidget {
+  final GameStore store;
+  const ThemesPage({super.key, required this.store});
+
+  void _toast(BuildContext context, String msg, Color bg) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        backgroundColor: bg,
+        content: Text(
+          msg,
+          style: const TextStyle(
+            fontFamily: 'monospace',
+            fontWeight: FontWeight.w900,
+            color: kBlack,
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _tapTheme(BuildContext context, BoardTheme t) {
+    if (store.isThemeUnlocked(t.id)) {
+      store.selectTheme(t.id);
+      _toast(context, 'THEME: ${t.name}', kMint);
+    } else if (store.diamonds >= t.price) {
+      store.buyTheme(t.id);
+      store.selectTheme(t.id);
+      _toast(context, 'UNLOCKED ${t.name} (-${t.price}💎)', kMint);
+    } else {
+      _toast(context, 'NEED ${t.price}💎', kCoral);
+    }
+  }
+
+  void _tapFrame(BuildContext context, BoardFrame f) {
+    if (store.isFrameUnlocked(f.id)) {
+      store.selectFrame(f.id);
+      _toast(context, 'FRAME: ${f.name}', kMint);
+    } else if (store.diamonds >= f.price) {
+      store.buyFrame(f.id);
+      store.selectFrame(f.id);
+      _toast(context, 'UNLOCKED ${f.name} (-${f.price}💎)', kMint);
+    } else {
+      _toast(context, 'NEED ${f.price}💎', kCoral);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(20),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 600),
+              child: AnimatedBuilder(
+                animation: store,
+                builder: (context, _) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Row(
+                        children: [
+                          BrutalIconButton(
+                            icon: Icons.arrow_back,
+                            onPressed: () => Navigator.pop(context),
+                          ),
+                          const SizedBox(width: 12),
+                          const Expanded(
+                            child: Text(
+                              'BOARD STYLE',
+                              style: TextStyle(
+                                fontFamily: 'monospace',
+                                fontSize: 20,
+                                fontWeight: FontWeight.w900,
+                                letterSpacing: 2,
+                              ),
+                            ),
+                          ),
+                          DiamondBadge(diamonds: store.diamonds),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      BrutalCard(
+                        bg: kCanarySoft,
+                        child: const Text(
+                          'CUSTOMIZE THE BOARD. TAP TO USE, OR BUY WITH 💎.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontFamily: 'monospace',
+                            fontSize: 12,
+                            height: 1.4,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      const Text(
+                        'BACKGROUNDS',
+                        style: TextStyle(
+                          fontFamily: 'monospace',
+                          fontSize: 12,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 2,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      GridView.builder(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        itemCount: kBoardThemes.length,
+                        gridDelegate:
+                            const SliverGridDelegateWithMaxCrossAxisExtent(
+                          maxCrossAxisExtent: 160,
+                          mainAxisSpacing: 10,
+                          crossAxisSpacing: 10,
+                          childAspectRatio: 0.9,
+                        ),
+                        itemBuilder: (context, i) {
+                          final t = kBoardThemes[i];
+                          final owned = store.isThemeUnlocked(t.id);
+                          return _ThemeTile(
+                            preview: t.preview,
+                            bg: t.boardBg,
+                            cellBg: t.cellBg,
+                            accent: t.accent,
+                            name: t.name,
+                            price: t.price,
+                            owned: owned,
+                            selected: store.theme.id == t.id,
+                            diamonds: store.diamonds,
+                            onTap: () => _tapTheme(context, t),
+                          );
+                        },
+                      ),
+                      const SizedBox(height: 18),
+                      const Text(
+                        'FRAMES',
+                        style: TextStyle(
+                          fontFamily: 'monospace',
+                          fontSize: 12,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 2,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      GridView.builder(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        itemCount: kBoardFrames.length,
+                        gridDelegate:
+                            const SliverGridDelegateWithMaxCrossAxisExtent(
+                          maxCrossAxisExtent: 140,
+                          mainAxisSpacing: 10,
+                          crossAxisSpacing: 10,
+                          childAspectRatio: 0.9,
+                        ),
+                        itemBuilder: (context, i) {
+                          final f = kBoardFrames[i];
+                          final owned = store.isFrameUnlocked(f.id);
+                          return _FrameTile(
+                            color: f.color,
+                            width: f.width,
+                            name: f.name,
+                            price: f.price,
+                            owned: owned,
+                            selected: store.frame.id == f.id,
+                            diamonds: store.diamonds,
+                            onTap: () => _tapFrame(context, f),
+                          );
+                        },
+                      ),
+                    ],
+                  );
+                },
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ThemeTile extends StatelessWidget {
+  final String preview;
+  final Color bg;
+  final Color cellBg;
+  final Color accent;
+  final String name;
+  final int price;
+  final bool owned;
+  final bool selected;
+  final int diamonds;
+  final VoidCallback onTap;
+  const _ThemeTile({
+    required this.preview,
+    required this.bg,
+    required this.cellBg,
+    required this.accent,
+    required this.name,
+    required this.price,
+    required this.owned,
+    required this.selected,
+    required this.diamonds,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: BrutalCard(
+        bg: selected ? kCanary : Colors.white,
+        shadow: kShadowSm,
+        padding: const EdgeInsets.all(8),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 34,
+              height: 34,
+              decoration: BoxDecoration(
+                color: bg,
+                border: Border.all(color: kBlack, width: 2),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Container(
+                    margin: const EdgeInsets.all(2),
+                    width: 9,
+                    height: 9,
+                    color: cellBg,
+                  ),
+                  Container(
+                    margin: const EdgeInsets.all(2),
+                    width: 9,
+                    height: 9,
+                    color: accent,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 6),
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                '$preview ${name.toUpperCase()}',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontFamily: 'monospace',
+                  fontSize: 10,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ),
+            const SizedBox(height: 6),
+            if (owned)
+              const Text(
+                'OWNED ✓',
+                style: TextStyle(
+                  fontFamily: 'monospace',
+                  fontSize: 10,
+                  fontWeight: FontWeight.w700,
+                ),
+              )
+            else
+              AffordButton(
+                affordable: diamonds >= price,
+                label: '$price💎',
+                onPressed: onTap,
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _FrameTile extends StatelessWidget {
+  final Color color;
+  final double width;
+  final String name;
+  final int price;
+  final bool owned;
+  final bool selected;
+  final int diamonds;
+  final VoidCallback onTap;
+  const _FrameTile({
+    required this.color,
+    required this.width,
+    required this.name,
+    required this.price,
+    required this.owned,
+    required this.selected,
+    required this.diamonds,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: BrutalCard(
+        bg: selected ? kCanary : Colors.white,
+        shadow: kShadowSm,
+        padding: const EdgeInsets.all(8),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                border: Border.all(color: color, width: width),
+              ),
+              child: const Center(
+                child: Text(
+                  '□',
+                  style: TextStyle(
+                    fontFamily: 'monospace',
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 6),
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                name.toUpperCase(),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontFamily: 'monospace',
+                  fontSize: 10,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ),
+            const SizedBox(height: 6),
+            if (owned)
+              const Text(
+                'OWNED ✓',
+                style: TextStyle(
+                  fontFamily: 'monospace',
+                  fontSize: 10,
+                  fontWeight: FontWeight.w700,
+                ),
+              )
+            else
+              AffordButton(
+                affordable: diamonds >= price,
+                label: '$price💎',
+                onPressed: onTap,
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+//  Profile (nickname + avatar sticker)
+// ────────────────────────────────────────────────────────────────────────────
+class ProfilePage extends StatefulWidget {
+  final GameStore store;
+  const ProfilePage({super.key, required this.store});
+
+  @override
+  State<ProfilePage> createState() => _ProfilePageState();
+}
+
+class _ProfilePageState extends State<ProfilePage> {
+  late final TextEditingController _name;
+  String _avatar = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _name = TextEditingController(text: widget.store.services.nickname ?? '');
+    _avatar = widget.store.services.avatar ?? '';
+  }
+
+  @override
+  void dispose() {
+    _name.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final store = widget.store;
+    return Scaffold(
+      body: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(20),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 520),
+              child: AnimatedBuilder(
+                animation: store,
+                builder: (context, _) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Row(
+                        children: [
+                          BrutalIconButton(
+                            icon: Icons.arrow_back,
+                            onPressed: () => Navigator.pop(context),
+                          ),
+                          const SizedBox(width: 12),
+                          const Expanded(
+                            child: Text(
+                              'PROFILE',
+                              style: TextStyle(
+                                fontFamily: 'monospace',
+                                fontSize: 20,
+                                fontWeight: FontWeight.w900,
+                                letterSpacing: 2,
+                              ),
+                            ),
+                          ),
+                          if (store.user != null)
+                            const Text('⚡', style: TextStyle(fontSize: 18)),
+                        ],
+                      ),
+                      const SizedBox(height: 20),
+                      BrutalCard(
+                        bg: kSky,
+                        shadow: kShadow,
+                        child: Column(
+                          children: [
+                            Text(
+                              store.services.avatar ?? (store.user != null ? '⭕' : '👤'),
+                              style: const TextStyle(fontSize: 64),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              store.displayName.toUpperCase(),
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(
+                                fontFamily: 'monospace',
+                                fontSize: 18,
+                                fontWeight: FontWeight.w900,
+                                letterSpacing: 1,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              store.user?.email ?? 'LOCAL PLAYER',
+                              style: const TextStyle(
+                                fontFamily: 'monospace',
+                                fontSize: 10,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      const Text(
+                        'NICKNAME (SHOWN ON LEADERBOARD)',
+                        style: TextStyle(
+                          fontFamily: 'monospace',
+                          fontSize: 10,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 1,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Container(
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          border: Border.all(color: kBlack, width: 2),
+                        ),
+                        child: TextField(
+                          controller: _name,
+                          maxLength: 16,
+                          style: const TextStyle(
+                            fontFamily: 'monospace',
+                            fontSize: 14,
+                            fontWeight: FontWeight.w900,
+                          ),
+                          decoration: const InputDecoration(
+                            counterText: '',
+                            hintText: 'YOUR NAME',
+                            border: InputBorder.none,
+                            contentPadding: EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 10),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      BrutalButton(
+                        label: 'SAVE NAME',
+                        bg: kMint,
+                        onPressed: () {
+                          store.services.setProfile(name: _name.text);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              backgroundColor: kMint,
+                              content: const Text(
+                                'SAVED!',
+                                style: TextStyle(
+                                  fontFamily: 'monospace',
+                                  fontWeight: FontWeight.w900,
+                                  color: kBlack,
+                                ),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                      const SizedBox(height: 18),
+                      const Text(
+                        'CHOOSE AVATAR STICKER',
+                        style: TextStyle(
+                          fontFamily: 'monospace',
+                          fontSize: 10,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 1,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      GridView.builder(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        itemCount: store.unlocked.length,
+                        gridDelegate:
+                            const SliverGridDelegateWithMaxCrossAxisExtent(
+                          maxCrossAxisExtent: 72,
+                          mainAxisSpacing: 8,
+                          crossAxisSpacing: 8,
+                        ),
+                        itemBuilder: (context, i) {
+                          final emoji = store.unlocked.toList()[i];
+                          final active = emoji == _avatar;
+                          return GestureDetector(
+                            onTap: () {
+                              setState(() => _avatar = emoji);
+                              store.services.setProfile(avatar: emoji);
+                            },
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: active ? kCanary : Colors.white,
+                                border: Border.all(
+                                    color: kBlack, width: active ? 3 : 2),
+                              ),
+                              child: Center(
+                                child: Text(
+                                  emoji,
+                                  style: const TextStyle(fontSize: 26),
+                                ),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ],
+                  );
+                },
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+//  Recent matches feed + replay
+// ────────────────────────────────────────────────────────────────────────────
+class MatchFeedPage extends StatefulWidget {
+  final GameStore store;
+  const MatchFeedPage({super.key, required this.store});
+
+  @override
+  State<MatchFeedPage> createState() => _MatchFeedPageState();
+}
+
+class _MatchFeedPageState extends State<MatchFeedPage> {
+  late Future<List<MatchRecord>> _future;
+
+  @override
+  void initState() {
+    super.initState();
+    _future = widget.store.services.fetchRecentMatches();
+  }
+
+  void _refresh() {
+    setState(() {
+      _future = widget.store.services.fetchRecentMatches();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(20),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 600),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    children: [
+                      BrutalIconButton(
+                        icon: Icons.arrow_back,
+                        onPressed: () => Navigator.pop(context),
+                      ),
+                      const SizedBox(width: 12),
+                      const Expanded(
+                        child: Text(
+                          'RECENT MATCHES',
+                          style: TextStyle(
+                            fontFamily: 'monospace',
+                            fontSize: 20,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 2,
+                          ),
+                        ),
+                      ),
+                      BrutalIconButton(
+                        icon: Icons.refresh,
+                        onPressed: _refresh,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  FutureBuilder<List<MatchRecord>>(
+                    future: _future,
+                    builder: (context, snap) {
+                      if (snap.connectionState != ConnectionState.done) {
+                        return const BrutalCard(
+                          child: Center(
+                            child: Padding(
+                              padding: EdgeInsets.all(20),
+                              child: CircularProgressIndicator(),
+                            ),
+                          ),
+                        );
+                      }
+                      final matches = snap.data ?? const [];
+                      if (matches.isEmpty) {
+                        return const BrutalCard(
+                          bg: kCanarySoft,
+                          child: Padding(
+                            padding: EdgeInsets.all(20),
+                            child: Text(
+                              'NO MATCHES YET. GO PLAY SOME GAMES!',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontFamily: 'monospace',
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
+                          ),
+                        );
+                      }
+                      return Column(
+                        children: [
+                          for (final m in matches)
+                            _MatchCard(
+                              match: m,
+                              onTap: () => pushBrutal(
+                                context,
+                                ReplayPage(match: m),
+                              ),
+                            ),
+                        ],
+                      );
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _MatchCard extends StatelessWidget {
+  final MatchRecord match;
+  final VoidCallback onTap;
+  const _MatchCard({required this.match, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final winLabel = match.winner == 'p1'
+        ? '🏆 ${match.p1Name}'
+        : match.winner == 'p2'
+            ? '🏆 ${match.p2Name}'
+            : '🤝 DRAW';
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: GestureDetector(
+        onTap: onTap,
+        child: BrutalCard(
+          bg: Colors.white,
+          shadow: kShadowSm,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  Text(match.mode, style: const TextStyle(
+                    fontFamily: 'monospace',
+                    fontSize: 10,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 1,
+                  )),
+                  const Spacer(),
+                  const Text('▶ REPLAY', style: TextStyle(
+                    fontFamily: 'monospace',
+                    fontSize: 9,
+                    fontWeight: FontWeight.w900,
+                  )),
+                ],
+              ),
+              const SizedBox(height: 6),
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  '${match.p1Emoji} ${match.p1Name}  VS  '
+                  '${match.p2Emoji} ${match.p2Name}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontFamily: 'monospace',
+                    fontSize: 12,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                winLabel,
+                style: const TextStyle(
+                  fontFamily: 'monospace',
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class ReplayPage extends StatefulWidget {
+  final MatchRecord match;
+  const ReplayPage({super.key, required this.match});
+
+  @override
+  State<ReplayPage> createState() => _ReplayPageState();
+}
+
+class _ReplayPageState extends State<ReplayPage> {
+  int _step = 0;
+  bool _playing = false;
+  Timer? _timer;
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  List<String?> _boardAt(int step) {
+    final board = List<String?>.filled(9, null);
+    for (int i = 0; i < step; i++) {
+      final idx = widget.match.moves[i];
+      if (idx >= 0 && idx < 9) {
+        board[idx] = i.isEven ? widget.match.p1Emoji : widget.match.p2Emoji;
+      }
+    }
+    return board;
+  }
+
+  void _togglePlay() {
+    setState(() => _playing = !_playing);
+    if (_playing) {
+      _timer?.cancel();
+      _timer = Timer.periodic(const Duration(milliseconds: 700), (_) {
+        if (!mounted) return;
+        if (_step >= widget.match.moves.length) {
+          _timer?.cancel();
+          setState(() => _playing = false);
+          return;
+        }
+        setState(() => _step += 1);
+      });
+    } else {
+      _timer?.cancel();
+    }
+  }
+
+  void _reset() {
+    _timer?.cancel();
+    setState(() {
+      _step = 0;
+      _playing = false;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final moves = widget.match.moves;
+    final atEnd = _step >= moves.length;
+    return Scaffold(
+      body: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(20),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 520),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    children: [
+                      BrutalIconButton(
+                        icon: Icons.arrow_back,
+                        onPressed: () => Navigator.pop(context),
+                      ),
+                      const SizedBox(width: 12),
+                      const Expanded(
+                        child: Text(
+                          'REPLAY',
+                          style: TextStyle(
+                            fontFamily: 'monospace',
+                            fontSize: 20,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 2,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  BrutalCard(
+                    bg: kSky,
+                    padding: const EdgeInsets.all(12),
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        '${widget.match.p1Emoji} ${widget.match.p1Name}  VS  '
+                        '${widget.match.p2Emoji} ${widget.match.p2Name}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontFamily: 'monospace',
+                          fontSize: 13,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  _Board(
+                    board: _boardAt(_step),
+                    winningLine: null,
+                    onTap: (_) {},
+                    theme: kBoardThemes.first,
+                    frame: kBoardFrames.first,
+                  ),
+                  const SizedBox(height: 16),
+                  BrutalCard(
+                    bg: kCanarySoft,
+                    padding: const EdgeInsets.all(12),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            atEnd
+                                ? 'GAME OVER'
+                                : 'MOVE ${_step + 1} / ${moves.length}',
+                            style: const TextStyle(
+                              fontFamily: 'monospace',
+                              fontSize: 13,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                        ),
+                        _ReplayBtn(icon: '◀', onTap: _step > 0 ? () => setState(() => _step -= 1) : null),
+                        const SizedBox(width: 6),
+                        _ReplayBtn(
+                            icon: _playing ? '⏸' : '▶',
+                            onTap: (atEnd && !_playing) ? _reset : _togglePlay),
+                        const SizedBox(width: 6),
+                        _ReplayBtn(icon: '▶',
+                            onTap: (!atEnd && !_playing)
+                                ? () => setState(() => _step += 1)
+                                : (_playing ? null : (_step == 0 ? null : _reset))),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ReplayBtn extends StatelessWidget {
+  final String icon;
+  final VoidCallback? onTap;
+  const _ReplayBtn({required this.icon, this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return BrutalButton(
+      label: icon,
+      onPressed: onTap,
+      bg: Colors.white,
+      fontSize: 14,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+    );
+  }
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+//  Online PvP
+// ────────────────────────────────────────────────────────────────────────────
+class OnlineLobbyPage extends StatefulWidget {
+  final GameStore store;
+  const OnlineLobbyPage({super.key, required this.store});
+
+  @override
+  State<OnlineLobbyPage> createState() => _OnlineLobbyPageState();
+}
+
+class _OnlineLobbyPageState extends State<OnlineLobbyPage> {
+  late Future<List<LobbyGame>> _future;
+  String _myEmoji = '🐶';
+
+  @override
+  void initState() {
+    super.initState();
+    _future = widget.store.services.fetchOpenGames();
+  }
+
+  void _refresh() {
+    setState(() {
+      _future = widget.store.services.fetchOpenGames();
+    });
+  }
+
+  Future<void> _create() async {
+    final id = await widget.store.services.createOnlineGame(
+      hostEmoji: _myEmoji,
+      hostName: widget.store.displayName,
+    );
+    if (id == null || !mounted) {
+      if (mounted) _fail("COULDN'T CREATE GAME.");
+      return;
+    }
+    _openGame(id, isHost: true, myEmoji: _myEmoji);
+  }
+
+  Future<void> _join(String id) async {
+    final ok = await widget.store.services.joinOnlineGame(
+      id,
+      guestEmoji: _myEmoji,
+      guestName: widget.store.displayName,
+    );
+    if (!ok || !mounted) {
+      if (mounted) _fail('GAME IS GONE / TAKEN.');
+      return;
+    }
+    _openGame(id, isHost: false, myEmoji: _myEmoji);
+  }
+
+  void _openGame(String id, {required bool isHost, required String myEmoji}) {
+    pushBrutal(
+      context,
+      OnlineGamePage(
+        store: widget.store,
+        docId: id,
+        isHost: isHost,
+        myEmoji: myEmoji,
+      ),
+    );
+  }
+
+  void _fail(String msg) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        backgroundColor: kCoral,
+        content: Text(
+          msg,
+          style: const TextStyle(
+            fontFamily: 'monospace',
+            fontWeight: FontWeight.w900,
+            color: kBlack,
+          ),
+        ),
+      ),
+    );
+    _refresh();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final services = widget.store.services;
+    return Scaffold(
+      body: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(20),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 520),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    children: [
+                      BrutalIconButton(
+                        icon: Icons.arrow_back,
+                        onPressed: () => Navigator.pop(context),
+                      ),
+                      const SizedBox(width: 12),
+                      const Expanded(
+                        child: Text(
+                          'ONLINE PVP',
+                          style: TextStyle(
+                            fontFamily: 'monospace',
+                            fontSize: 20,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 2,
+                          ),
+                        ),
+                      ),
+                      BrutalIconButton(
+                        icon: Icons.refresh,
+                        onPressed: _refresh,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  if (!services.online) ...[
+                    BrutalCard(
+                      bg: kCoral,
+                      child: const Text(
+                        'SIGN IN WITH GOOGLE TO PLAY ONLINE.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontFamily: 'monospace',
+                          fontSize: 12,
+                          height: 1.5,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ] else ...[
+                    BrutalCard(
+                      bg: kSky,
+                      padding: const EdgeInsets.all(12),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          const Text(
+                            'YOUR FIGHTER',
+                            style: TextStyle(
+                              fontFamily: 'monospace',
+                              fontSize: 10,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: 2,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Wrap(
+                            spacing: 8,
+                            children: [
+                              for (final emoji in _pickEmojis())
+                                _OptionChip(
+                                  active: _myEmoji == emoji,
+                                  label: emoji,
+                                  onTap: () => setState(() => _myEmoji = emoji),
+                                ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    BrutalButton(
+                      label: '＋ CREATE GAME',
+                      bg: kCanary,
+                      onPressed: _create,
+                    ),
+                    const SizedBox(height: 20),
+                    const Text(
+                      'OPEN GAMES',
+                      style: TextStyle(
+                        fontFamily: 'monospace',
+                        fontSize: 12,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 2,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    FutureBuilder<List<LobbyGame>>(
+                      future: _future,
+                      builder: (context, snap) {
+                        if (snap.connectionState != ConnectionState.done) {
+                          return const BrutalCard(
+                            child: Center(
+                              child: Padding(
+                                padding: EdgeInsets.all(16),
+                                child: CircularProgressIndicator(),
+                              ),
+                            ),
+                          );
+                        }
+                        final games = snap.data ?? const [];
+                        if (games.isEmpty) {
+                          return const BrutalCard(
+                            bg: kCanarySoft,
+                            child: Padding(
+                              padding: EdgeInsets.all(16),
+                              child: Text(
+                                'NO OPEN GAMES. CREATE ONE AND WAIT FOR A RIVAL!',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  fontFamily: 'monospace',
+                                  fontSize: 11,
+                                  height: 1.4,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
+                            ),
+                          );
+                        }
+                        return Column(
+                          children: [
+                            for (final g in games)
+                              Padding(
+                                padding: const EdgeInsets.only(bottom: 8),
+                                child: BrutalCard(
+                                  bg: Colors.white,
+                                  shadow: kShadowSm,
+                                  padding: const EdgeInsets.all(10),
+                                  child: Row(
+                                    children: [
+                                      Text(g.hostEmoji,
+                                          style: const TextStyle(fontSize: 22)),
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        child: Text(
+                                          g.hostName,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: const TextStyle(
+                                            fontFamily: 'monospace',
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w900,
+                                          ),
+                                        ),
+                                      ),
+                                      BrutalButton(
+                                        label: 'JOIN',
+                                        bg: kMint,
+                                        fontSize: 13,
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 14, vertical: 8),
+                                        onPressed: () => _join(g.id),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                          ],
+                        );
+                      },
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  List<String> _pickEmojis() {
+    final base = widget.store.unlocked.toList();
+    return base.take(6).toList();
+  }
+}
+
+class OnlineGamePage extends StatefulWidget {
+  final GameStore store;
+  final String docId;
+  final bool isHost;
+  final String myEmoji;
+  const OnlineGamePage({
+    super.key,
+    required this.store,
+    required this.docId,
+    required this.isHost,
+    required this.myEmoji,
+  });
+
+  @override
+  State<OnlineGamePage> createState() => _OnlineGamePageState();
+}
+
+class _OnlineGamePageState extends State<OnlineGamePage> {
+  List<String?> _board = List.filled(9, null);
+  String? _oppEmoji;
+  String? _oppName;
+  String? _turn;
+  String _status = 'open';
+  String _winner = '';
+  bool _reported = false;
+  StreamSubscription? _sub;
+
+  bool get _open => _status == 'open';
+  bool get _playing => _status == 'playing';
+  bool get _myTurn => _playing && _turn == widget.myEmoji;
+
+  @override
+  void initState() {
+    super.initState();
+    _sub = widget.store.services
+        .watchOnlineGame(widget.docId)
+        .listen(_onUpdate, onError: (_) {});
+    widget.store.services.fetchOnlineGame(widget.docId).then((data) {
+      if (data != null) _onUpdate(data);
+    });
+  }
+
+  @override
+  void dispose() {
+    _sub?.cancel();
+    super.dispose();
+  }
+
+  void _onUpdate(Map<String, dynamic>? data) {
+    if (!mounted || data == null) return;
+    setState(() {
+      _board = List<String?>.from(
+          (data['board'] as List?)?.map((e) => e as String?) ??
+              List.filled(9, null));
+      _turn = data['turn'] as String?;
+      _status = (data['status'] as String?) ?? 'open';
+      _winner = (data['winner'] as String?) ?? '';
+      final guestE = data['guestEmoji'] as String?;
+      _oppEmoji = widget.isHost ? guestE : (data['hostEmoji'] as String?);
+      _oppName = widget.isHost
+          ? (data['guestName'] as String?)
+          : (data['hostName'] as String?);
+      if (_status == 'done' && !_reported) {
+        _reported = true;
+        _settle();
+      }
+    });
+  }
+
+  void _settle() {
+    final win = _winner;
+    final iWon = win.isNotEmpty && win == widget.myEmoji;
+    widget.store.reportRound(
+      p1Win: iWon,
+      p2Win: win.isNotEmpty && !iWon,
+      playerWon: iWon,
+    );
+    if (iWon) widget.store.addDiamonds(widget.store.winReward);
+    widget.store.services.recordMatch(
+      id: widget.docId,
+      mode: '2P ONLINE',
+      p1Emoji: widget.isHost ? widget.myEmoji : (_oppEmoji ?? '🐶'),
+      p2Emoji: widget.isHost ? (_oppEmoji ?? '🐼') : widget.myEmoji,
+      p1Name: widget.isHost ? widget.store.displayName : (_oppName ?? 'Rival'),
+      p2Name: widget.isHost ? (_oppName ?? 'Rival') : widget.store.displayName,
+      winner: win.isEmpty ? 'draw' : (iWon ? 'p1' : 'p2'),
+      moves: const [],
+    );
+  }
+
+  void _onCell(int i) {
+    if (!_myTurn || _board[i] != null) return;
+    widget.store.services.playOnlineMove(widget.docId, i, widget.myEmoji);
+    setState(() {
+      _board[i] = widget.myEmoji;
+      _turn = _oppEmoji;
+    });
+  }
+
+  void _leave() {
+    widget.store.services.closeOnlineGame(widget.docId);
+    Navigator.pop(context);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final oppE = _oppEmoji ?? '❓';
+    return PopScope(
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop) _sub?.cancel();
+      },
+      child: Scaffold(
+        body: SafeArea(
+          child: Center(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(20),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 560),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Row(
+                      children: [
+                        BrutalIconButton(
+                          icon: Icons.arrow_back,
+                          onPressed: _leave,
+                        ),
+                        const SizedBox(width: 12),
+                        const Expanded(
+                          child: Text(
+                            'ONLINE BATTLE',
+                            style: TextStyle(
+                              fontFamily: 'monospace',
+                              fontSize: 17,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: 2,
+                            ),
+                          ),
+                        ),
+                        DiamondBadge(diamonds: widget.store.diamonds),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    _TurnStrip(
+                      p1: widget.isHost ? widget.myEmoji : oppE,
+                      p2: widget.isHost ? oppE : widget.myEmoji,
+                      current: _playing ? (_turn ?? widget.myEmoji) : '',
+                      isAiMode: false,
+                    ),
+                    const SizedBox(height: 8),
+                    if (_open)
+                      BrutalCard(
+                        bg: kCanarySoft,
+                        child: const Text(
+                          '⏳ WAITING FOR A RIVAL TO JOIN…',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontFamily: 'monospace',
+                            fontSize: 12,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      )
+                    else if (_status == 'done')
+                      BrutalCard(
+                        bg: kMint,
+                        child: Text(
+                          _winner.isNotEmpty && _winner == widget.myEmoji
+                              ? '🏆 YOU WIN! +${widget.store.winReward}💎'
+                              : (_winner.isNotEmpty ? 'YOU LOSE' : 'DRAW'),
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            fontFamily: 'monospace',
+                            fontSize: 13,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      )
+                    else if (!_myTurn)
+                      BrutalCard(
+                        bg: kCoral,
+                        child: Text(
+                          '${_oppName ?? 'RIVAL'} IS THINKING…',
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            fontFamily: 'monospace',
+                            fontSize: 12,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ),
+                    const SizedBox(height: 12),
+                    _Board(
+                      board: _board,
+                      winningLine: _winner.isNotEmpty
+                          ? _winningLineOf(_board, _winner)
+                          : null,
+                      onTap: _onCell,
+                      theme: widget.store.theme,
+                      frame: widget.store.frame,
+                    ),
+                    const SizedBox(height: 12),
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        '${widget.myEmoji} ${widget.store.displayName}  VS  '
+                        '$oppE ${_oppName ?? '…'}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontFamily: 'monospace',
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    BrutalButton(
+                      label: 'LEAVE MATCH',
+                      bg: kCoral,
+                      onPressed: _leave,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+List<int>? _winningLineOf(List<String?> board, String mark) {
+  for (final line in _winLines) {
+    if (board[line[0]] == mark &&
+        board[line[1]] == mark &&
+        board[line[2]] == mark) {
+      return line;
+    }
+  }
+  return null;
 }

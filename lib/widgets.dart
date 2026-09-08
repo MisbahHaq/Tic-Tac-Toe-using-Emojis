@@ -9,14 +9,12 @@ class HeaderRow extends StatelessWidget {
   final VoidCallback onStore;
   final VoidCallback onLeaderboard;
   final VoidCallback onFeed;
-  final VoidCallback onProfile;
   const HeaderRow({
     super.key,
     required this.store,
     required this.onStore,
     required this.onLeaderboard,
     required this.onFeed,
-    required this.onProfile,
   });
 
   @override
@@ -45,8 +43,6 @@ class HeaderRow extends StatelessWidget {
         BrutalIconButton(icon: Icons.store_outlined, onPressed: onStore),
         const SizedBox(width: 8),
         BrutalIconButton(icon: Icons.emoji_events_outlined, onPressed: onLeaderboard),
-        const SizedBox(width: 8),
-        BrutalIconButton(icon: Icons.person_outline, onPressed: onProfile),
         if (isOnline) ...[
           const SizedBox(width: 8),
           const Text('⚡', style: TextStyle(fontSize: 18)),
