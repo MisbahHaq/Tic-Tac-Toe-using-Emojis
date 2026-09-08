@@ -61,18 +61,35 @@ once (takes ~3 minutes):
    ```
 
 ### 4. Add config files
+- **Web**: already done — `lib/firebase_options.dart` contains the
+  `tictactoe-1295a` web config (apiKey, appId, authDomain, etc.). No extra file needed.
 - **Android**: download `google-services.json` from Firebase Console and drop it in
   `android/app/`. The Gradle plugin is already wired to apply only when that file exists,
-  so the build works with or without it.
-- **Web**: paste the `firebaseConfig` into `flutter_web/firebase-config.js` (create it if
-  missing) and load it before the app starts — or hardcode it in `web/index.html`.
+  so the build works with or without it. Also add the **Android** app in the console
+  (package name = your `applicationId`, default `com.example.game`) and register the
+  **SHA-1** fingerprint (see step 2) so Google Sign-In works on Android devices.
 
 ### 5. Run
 ```
-flutter run
+flutter run           # web / device
 ```
 When Firebase is configured you'll see **SIGN IN FOR LEADERBOARD** on the home
 screen. Without it you can still play in local mode.
+
+### Troubleshooting
+- **"Sign in" button won't work / shows nothing** — open a red notice on the
+  SIGN IN page; it tells you the exact cause, e.g. *POPUP BLOCKED*, *DOMAIN
+  NOT AUTHORIZED*, or *GOOGLE SIGN-IN DISABLED* (fix: **Authentication → Sign-in
+  method → enable Google**). On Android also make sure `google-services.json`
+  is in `android/app/`.
+- **Accounts signed in but not on the leaderboard** — the wins must be *played
+  after* sign-in for the current account. Every account that has played on the
+  device now appears locally, and rows merge with Firestore once it's reachable.
+  If a red *CLOUD SAVE FAILED / ONLINE LEADERBOARD UNAVAILABLE* banner shows,
+  create the database: **Firestore Database → Create database**.
+- **Web** — the domain you open the app from must be under **Authentication →
+  Settings → Authorized domains** (`localhost` is pre-approved), and the browser
+  must allow pop-ups.
 
 ---
 

@@ -1226,6 +1226,23 @@ class _SignInPageState extends State<SignInPage> {
                         ),
                       ),
                     ),
+                  if (store.services.lastError != null && store.user == null)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 16),
+                      child: BrutalCard(
+                        bg: kCoral,
+                        child: Text(
+                          store.services.lastError!,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            fontFamily: 'monospace',
+                            fontSize: 11,
+                            height: 1.5,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ),
                   const SizedBox(height: 20),
                   if (_busy)
                     const Center(child: CircularProgressIndicator())
@@ -1236,13 +1253,16 @@ class _SignInPageState extends State<SignInPage> {
                       onPressed: () async {
                         setState(() => _busy = true);
                         final ok = await store.services.signInWithGoogle();
+                        final err = store.services.lastError;
                         if (!context.mounted) return;
                         setState(() => _busy = false);
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
                             backgroundColor: ok ? kMint : kCoral,
                             content: Text(
-                              ok ? 'WELCOME!' : 'SIGN-IN FAILED / CANCELLED',
+                              ok
+                                  ? 'WELCOME!'
+                                  : err ?? 'SIGN-IN FAILED / CANCELLED',
                               style: const TextStyle(
                                 fontFamily: 'monospace',
                                 fontWeight: FontWeight.w900,
@@ -1282,11 +1302,28 @@ class LeaderboardPage extends StatefulWidget {
 
 class _LeaderboardPageState extends State<LeaderboardPage> {
   late Future<List<LeaderboardEntry>> _future;
+  String? _lastUid;
 
   @override
   void initState() {
     super.initState();
+    _lastUid = widget.store.user?.uid;
+    widget.store.addListener(_onStoreChanged);
     _future = widget.store.services.fetchLeaderboard();
+  }
+
+  @override
+  void dispose() {
+    widget.store.removeListener(_onStoreChanged);
+    super.dispose();
+  }
+
+  void _onStoreChanged() {
+    final uid = widget.store.user?.uid;
+    if (uid != _lastUid) {
+      _lastUid = uid;
+      if (mounted) _refresh();
+    }
   }
 
   void _refresh() {
@@ -1360,6 +1397,23 @@ class _LeaderboardPageState extends State<LeaderboardPage> {
                         ),
                       ),
                     ),
+                  if (widget.store.services.lastError != null)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 16),
+                      child: BrutalCard(
+                        bg: kCoral,
+                        child: Text(
+                          widget.store.services.lastError!,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            fontFamily: 'monospace',
+                            fontSize: 11,
+                            height: 1.5,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ),
                   const SizedBox(height: 16),
                   FutureBuilder<List<LeaderboardEntry>>(
                     future: _future,
@@ -1397,7 +1451,8 @@ class _LeaderboardPageState extends State<LeaderboardPage> {
                               rank: i + 1,
                               entry: entries[i],
                               isMe: widget.store.user != null &&
-                                  entries[i].name == widget.store.user!.name,
+                                  widget.store.user!.uid == entries[i].uid &&
+                                  entries[i].uid.isNotEmpty,
                             ),
                         ],
                       );
