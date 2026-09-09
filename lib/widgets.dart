@@ -6,11 +6,13 @@ import 'theme.dart';
 /// Header with app title + diamonds + store + leaderboard shortcuts.
 class HeaderRow extends StatelessWidget {
   final GameStore store;
+  final VoidCallback onProfile;
   final VoidCallback onStore;
   final VoidCallback onLeaderboard;
   const HeaderRow({
     super.key,
     required this.store,
+    required this.onProfile,
     required this.onStore,
     required this.onLeaderboard,
   });
@@ -35,6 +37,8 @@ class HeaderRow extends StatelessWidget {
         ),
         const SizedBox(width: 8),
         DiamondBadge(diamonds: store.diamonds),
+        const SizedBox(width: 8),
+        BrutalIconButton(icon: Icons.person_outline, onPressed: onProfile),
         const SizedBox(width: 8),
         BrutalIconButton(icon: Icons.store_outlined, onPressed: onStore),
         const SizedBox(width: 8),

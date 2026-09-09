@@ -119,6 +119,7 @@ class _HomeContent extends StatelessWidget {
       children: [
         HeaderRow(
           store: store,
+          onProfile: () => pushBrutal(context, ProfilePage(store: store)),
           onStore: () => pushBrutal(context, StorePage(store: store)),
           onLeaderboard:
               () => pushBrutal(context, LeaderboardPage(store: store)),
@@ -249,7 +250,7 @@ class _DailyQuestsCard extends StatelessWidget {
                             BrutalButton(
                               label:
                                   store.canClaimDaily
-                                      ? 'CLAIM +$kDailyBonus💎'
+                                      ? 'CLAIM +${store.todayBonus}💎'
                                       : '✓ DONE',
                               bg: store.canClaimDaily ? kCanary : Colors.white,
                               enabled: store.canClaimDaily,
@@ -2854,7 +2855,18 @@ class _ProfilePageState extends State<ProfilePage> {
                             );
                           } else {
                             for (final f in data.friends) {
-                              rows.add(_FriendTile(friend: f));
+                              rows.add(
+                                _FriendTile(
+                                  friend: f,
+                                  onTap: () => pushBrutal(
+                                    context,
+                                    FriendProfilePage(
+                                      services: widget.store.services,
+                                      friend: f,
+                                    ),
+                                  ),
+                                ),
+                              );
                             }
                           }
                           if (data.outgoing.isNotEmpty) {
@@ -3002,35 +3014,182 @@ Widget _friendHeader(String label) => Padding(
   ),
 );
 
-class _FriendTile extends StatelessWidget {
+class FriendProfilePage extends StatefulWidget {
+  final AppServices services;
   final FriendEntry friend;
-  final bool pending;
-  const _FriendTile({required this.friend, this.pending = false});
+  const FriendProfilePage({
+    super.key,
+    required this.services,
+    required this.friend,
+  });
+
+  @override
+  State<FriendProfilePage> createState() => _FriendProfilePageState();
+}
+
+class _FriendProfilePageState extends State<FriendProfilePage> {
+  late Future<LeaderboardEntry?> _stats;
+
+  @override
+  void initState() {
+    super.initState();
+    _stats = widget.services.fetchUserStats(widget.friend.uid);
+  }
 
   @override
   Widget build(BuildContext context) {
-    return BrutalCard(
-      bg: pending ? const Color(0xFFF3F4F6) : Colors.white,
-      shadow: kShadowNone,
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-      child: Row(
-        children: [
-          Text(friend.emoji, style: const TextStyle(fontSize: 20)),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              friend.name,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                fontFamily: 'monospace',
-                fontSize: 12,
-                fontWeight: FontWeight.w900,
+    final f = widget.friend;
+    return Scaffold(
+      body: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(20),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 520),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    children: [
+                      BrutalIconButton(
+                        icon: Icons.arrow_back,
+                        onPressed: () => Navigator.pop(context),
+                      ),
+                      const SizedBox(width: 12),
+                      const Expanded(
+                        child: Text(
+                          'PROFILE',
+                          style: TextStyle(
+                            fontFamily: 'monospace',
+                            fontSize: 20,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 2,
+                          ),
+                        ),
+                      ),
+                      const Text('🤝', style: TextStyle(fontSize: 18)),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+                  BrutalCard(
+                    bg: kSky,
+                    shadow: kShadow,
+                    child: Column(
+                      children: [
+                        Text(f.emoji, style: const TextStyle(fontSize: 64)),
+                        const SizedBox(height: 8),
+                        Text(
+                          f.name.toUpperCase(),
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            fontFamily: 'monospace',
+                            fontSize: 18,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 1,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        const Text(
+                          'FRIEND',
+                          style: TextStyle(
+                            fontFamily: 'monospace',
+                            fontSize: 10,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 2,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  FutureBuilder<LeaderboardEntry?>(
+                    future: _stats,
+                    builder: (context, snap) {
+                      final entry = snap.data;
+                      final wins = entry?.wins ?? 0;
+                      final games = entry?.games ?? 0;
+                      final pct = games == 0 ? 0 : (wins * 100 ~/ games);
+                      return BrutalCard(
+                        bg: Colors.white,
+                        shadow: kShadowSm,
+                        padding: const EdgeInsets.all(14),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            const Text(
+                              'THIS WEEK',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontFamily: 'monospace',
+                                fontSize: 9,
+                                fontWeight: FontWeight.w900,
+                                letterSpacing: 2,
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+                            Row(
+                              children: [
+                                _ProfileStat(icon: '🏆', value: '$pct%', label: 'WIN %'),
+                                const SizedBox(width: 8),
+                                _ProfileStat(icon: '🎮', value: '$games', label: 'GAMES'),
+                                const SizedBox(width: 8),
+                                _ProfileStat(icon: '⚡', value: '$wins', label: 'WINS'),
+                              ],
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+                ],
               ),
             ),
           ),
-          if (pending) const Text('⏳', style: TextStyle(fontSize: 14)),
-        ],
+        ),
+      ),
+    );
+  }
+}
+
+class _FriendTile extends StatelessWidget {
+  final FriendEntry friend;
+  final bool pending;
+  final VoidCallback? onTap;
+  const _FriendTile({required this.friend, this.pending = false, this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: BrutalCard(
+        bg: pending ? const Color(0xFFF3F4F6) : Colors.white,
+        shadow: kShadowNone,
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        child: Opacity(
+          opacity: pending ? 0.6 : 1,
+          child: Row(
+            children: [
+              Text(friend.emoji, style: const TextStyle(fontSize: 20)),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  friend.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontFamily: 'monospace',
+                    fontSize: 12,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+              if (pending)
+                const Text('⏳', style: TextStyle(fontSize: 14))
+              else
+                const Text('›', style: TextStyle(fontSize: 18)),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -3720,10 +3879,10 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
   String _winner = '';
   String _rematchReq = '';
   bool _reported = false;
-  bool _dialogShown = false;
   bool _myProposed = false;
   bool _incomingShown = false;
   bool _roundOver = false;
+  bool _closedShown = false;
   final List<BuildContext> _openDialogs = [];
   StreamSubscription? _sub;
 
@@ -3799,7 +3958,6 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
           _showIncomingRematchDialog();
           return;
         }
-        _dialogShown = true;
         _showEndDialog();
       });
     } else if (_status == 'done' &&
@@ -3810,8 +3968,10 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
       // Rival proposed a rematch while we had just finished.
       _closeAllDialogs();
       _showIncomingRematchDialog();
-    } else if (_status == 'closed' && !_roundOver && !_dialogShown) {
-      _dialogShown = true;
+    } else if (_status == 'closed' && !_closedShown) {
+      // The rival left — surface this even if the end/rematch dialog is open.
+      _closedShown = true;
+      _closeAllDialogs();
       _schedule(_showClosedDialog);
     } else if (_status == 'playing' && wasDone) {
       // A rematch round just started: reset local state + swap dialogs.
@@ -3819,7 +3979,7 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
       _reported = false;
       _myProposed = false;
       _incomingShown = false;
-      _dialogShown = false;
+      _closedShown = false;
       _closeAllDialogs();
       _schedule(() {
         if (!mounted) return;
@@ -4114,7 +4274,6 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
                       BrutalButton(
                         label: 'REMATCH',
                         onPressed: () {
-                          _dialogShown = false;
                           Navigator.pop(context);
                           _requestRematch();
                         },
@@ -4129,7 +4288,6 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
                           vertical: 14,
                         ),
                         onPressed: () {
-                          _dialogShown = false;
                           Navigator.pop(context);
                           _leave();
                         },

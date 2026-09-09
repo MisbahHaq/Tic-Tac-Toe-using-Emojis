@@ -863,6 +863,30 @@ class AppServices extends ChangeNotifier {
     }
   }
 
+  /// This week's wins/games for a friend (from the same collection the
+  /// leaderboard uses), falling back to local rows when offline.
+  Future<LeaderboardEntry?> fetchUserStats(String uid) async {
+    final local = _localBoard[uid];
+    if (uid.isEmpty) return local;
+    if (!online || _db == null) return local;
+    try {
+      final data = (await _db!
+              .collection(seasonCollection(LeaderboardPeriod.weekly))
+              .doc(uid)
+              .get())
+          .data();
+      return LeaderboardEntry(
+        uid: uid,
+        name: (data?[kName] as String?) ?? local?.name ?? 'Player',
+        wins: (data?[kWins] as num?)?.toInt() ?? local?.wins ?? 0,
+        games: (data?[kGames] as num?)?.toInt() ?? local?.games ?? 0,
+        photoUrl: (data?[kPhoto] as String?) ?? local?.photoUrl,
+      );
+    } catch (_) {
+      return local;
+    }
+  }
+
   Future<bool> sendFriendRequest(
     String uid, {
     required String name,

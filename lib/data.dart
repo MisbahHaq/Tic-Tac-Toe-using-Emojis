@@ -58,7 +58,6 @@ const List<EmojiItem> kCatalog = [
 
 const int kWinReward = 5; // diamonds earned per win (before streak multiplier)
 const int kStartingDiamonds = 6;
-const int kDailyBonus = 10;
 const int kQuestWinReward = 20;
 const int kQuestPlayReward = 15;
 const int kQuestStreakReward = 10;
@@ -344,12 +343,20 @@ class GameStore extends ChangeNotifier {
 
   bool get canClaimDaily => _bonusDate != _todayKey;
 
+  /// Today's daily bonus is deterministic so it stays the same all day (the
+  /// button can show the exact amount before claiming) but changes daily.
+  int get todayBonus {
+    final seed = _todayKey.hashCode.abs();
+    return 5 + (seed % 16); // 5–20💎
+  }
+
   Future<int?> claimDaily() async {
     if (!canClaimDaily) return null;
     _bonusDate = _todayKey;
-    addDiamonds(kDailyBonus);
+    final amount = todayBonus;
+    addDiamonds(amount);
     await _save();
-    return kDailyBonus;
+    return amount;
   }
 
   List<QuestStatus> get quests => [

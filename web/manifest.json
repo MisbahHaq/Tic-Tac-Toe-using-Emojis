@@ -3,9 +3,9 @@
     "short_name": "toemoji",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "background_color": "#FAF7F2",
+    "theme_color": "#FDE047",
+    "description": "Neo-brutalist tic-tac-toe with emojis. Claim daily diamond bonuses, unlock emojis, climb the online leaderboard and challenge friends.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [
