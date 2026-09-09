@@ -3,8 +3,6 @@
 A fun and modern **Tic Tac Toe** game built with **Flutter**, using emojis instead of the traditional X and O.
 Neo-Brutalist UI, a 💎 diamond currency, unlockable fighters, game modes (2P / VS AI), Google Sign-In and an online leaderboard.
 
-https://github.com/user-attachments/assets/3e689115-ff6e-41d8-bc0a-d4cc4d367c86
-
 ## 🚀 Features
 - 🎨 Emoji-based Tic Tac Toe gameplay
 - 👥 2 Player mode + 🤖 VS AI (Easy = random, Hard = minimax) + ⚔️ online PvP
