@@ -658,6 +658,7 @@ class AppServices extends ChangeNotifier {
   Future<String?> createOnlineGame({
     required String hostEmoji,
     required String hostName,
+    String? roomCode,
   }) async {
     if (!online || _db == null || _auth == null) return null;
     try {
@@ -673,9 +674,40 @@ class AppServices extends ChangeNotifier {
         'turn': hostEmoji,
         'moves': <int>[],
         'status': 'open',
+        'roomCode': roomCode,
         'atMs': DateTime.now().millisecondsSinceEpoch,
       });
       return ref.id;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Finds an open private room by its invite code and joins it. Returns the
+  /// joined game's id (same shape as [createOnlineGame]).
+  Future<String?> joinOnlineGameByCode(
+    String code, {
+    required String guestEmoji,
+    required String guestName,
+  }) async {
+    if (!online || _db == null || _auth == null) return null;
+    final normalized = code.trim().toUpperCase();
+    if (normalized.isEmpty) return null;
+    try {
+      final q = await _db!
+          .collection('onlineOpen')
+          .where('roomCode', isEqualTo: normalized)
+          .where('status', isEqualTo: 'open')
+          .limit(1)
+          .get();
+      if (q.docs.isEmpty) return null;
+      final id = q.docs.first.id;
+      final ok = await joinOnlineGame(
+        id,
+        guestEmoji: guestEmoji,
+        guestName: guestName,
+      );
+      return ok ? id : null;
     } catch (_) {
       return null;
     }

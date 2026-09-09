@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import 'data.dart';
 import 'services.dart';
@@ -123,6 +124,8 @@ class _HomeContent extends StatelessWidget {
           onStore: () => pushBrutal(context, StorePage(store: store)),
           onLeaderboard:
               () => pushBrutal(context, LeaderboardPage(store: store)),
+          onAchievements:
+              () => pushBrutal(context, AchievementsPage(store: store)),
         ),
         const SizedBox(height: 32),
         FittedBox(
@@ -239,7 +242,9 @@ class _DailyQuestsCard extends StatelessWidget {
                                 !bonusReady
                                     ? '🎁 DAILY BONUS CLAIMED'
                                     : (signedIn
-                                        ? '🎁 DAILY BONUS READY'
+                                        ? (store.dayMultiplier > 1
+                                            ? '🎁 DAILY BONUS READY · x${store.dayMultiplier} STREAK'
+                                            : '🎁 DAILY BONUS READY')
                                         : '🔒 SIGN IN TO CLAIM DAILY BONUS'),
                                 style: const TextStyle(
                                   fontFamily: 'monospace',
@@ -253,17 +258,18 @@ class _DailyQuestsCard extends StatelessWidget {
                               label: !bonusReady
                                   ? '✓ DONE'
                                   : (signedIn
-                                      ? 'CLAIM +${store.todayBonus}💎'
+                                      ? 'CLAIM +${store.dayReward}💎'
                                       : 'LOG IN'),
                               bg: bonusReady ? kCanary : Colors.white,
-                              enabled: bonusReady && signedIn,
+                              enabled: bonusReady,
                               fontSize: 11,
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 12,
                                 vertical: 8,
                               ),
-                              onPressed:
-                                  bonusReady && signedIn
+                              onPressed: !bonusReady
+                                  ? null
+                                  : (signedIn
                                       ? () async {
                                         final got = await store.claimDaily();
                                         if (got != null && context.mounted) {
@@ -274,7 +280,10 @@ class _DailyQuestsCard extends StatelessWidget {
                                           );
                                         }
                                       }
-                                      : null,
+                                      : () => pushBrutal(
+                                          context,
+                                          SignInPage(store: store),
+                                        )),
                             ),
                           ],
                         ),
@@ -366,19 +375,145 @@ class _QuestRow extends StatelessWidget {
                 ? (signedIn ? '+${quest.reward}💎' : 'LOG IN')
                 : '${quest.current}/${quest.target}',
             bg: quest.done ? kMint : Colors.white,
-            enabled: signedIn && quest.done,
+            enabled: quest.done,
             fontSize: 11,
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            onPressed:
-                signedIn && quest.done
+            onPressed: !quest.done
+                ? null
+                : (signedIn
                     ? () async {
                       final got = await store.claimQuest(quest.id);
                       if (got > 0 && context.mounted) {
                         onToast(context, 'QUEST COMPLETE +$got💎', kMint);
                       }
                     }
-                    : null,
+                    : () =>
+                          pushBrutal(context, SignInPage(store: store))),
           ),
+      ],
+    );
+  }
+}
+
+class _StreakCard extends StatelessWidget {
+  final GameStore store;
+  const _StreakCard({required this.store});
+
+  static const _wd = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: store,
+      builder: (context, _) {
+        final today = DateTime.now();
+        final streak = store.dayStreak;
+        final mult = store.dayMultiplier;
+        return BrutalCard(
+          bg: Colors.white,
+          shadow: kShadowSm,
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  const Expanded(
+                    child: Text(
+                      '📅 DAY STREAK CALENDAR',
+                      style: TextStyle(
+                        fontFamily: 'monospace',
+                        fontSize: 10,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 2,
+                      ),
+                    ),
+                  ),
+                  Text(
+                    '🔥 ${streak == 0 ? 'NO STREAK' : '$streak DAY${streak == 1 ? '' : 'S'}'}',
+                    style: const TextStyle(
+                      fontFamily: 'monospace',
+                      fontSize: 14,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              Text(
+                mult > 1
+                    ? 'DAILY BONUS ×$mult · CLAIM THE BONUS EACH DAY TO KEEP IT ALIVE'
+                    : 'EARN ×2 BONUS AT 3 DAYS · ×3 AT 7 DAYS',
+                style: const TextStyle(
+                  fontFamily: 'monospace',
+                  fontSize: 9,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  for (int i = 13; i >= 0; i--)
+                    Expanded(
+                      child: _DayCell(
+                        day: today.subtract(Duration(days: i)),
+                        active: store.wasActiveOn(
+                          today.subtract(Duration(days: i)),
+                        ),
+                        isToday: i == 0,
+                      ),
+                    ),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _DayCell extends StatelessWidget {
+  final DateTime day;
+  final bool active;
+  final bool isToday;
+  const _DayCell({required this.day, required this.active, required this.isToday});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Text(
+          _StreakCard._wd[day.weekday - 1],
+          style: const TextStyle(
+            fontFamily: 'monospace',
+            fontSize: 8,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+        const SizedBox(height: 4),
+        AspectRatio(
+          aspectRatio: 1,
+          child: Container(
+            decoration: BoxDecoration(
+              color: active ? kMint : Colors.white,
+              border: Border.all(
+                color: isToday ? kBlack : const Color(0xFFB5B5B5),
+                width: isToday ? 2.5 : 1.5,
+              ),
+            ),
+            child: Center(
+              child: Text(
+                active ? '✓' : '${day.day}',
+                style: const TextStyle(
+                  fontFamily: 'monospace',
+                  fontSize: 8,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ),
+        ),
       ],
     );
   }
@@ -420,20 +555,272 @@ class _ModeCard extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 12),
-            Text(
-              label,
-              style: const TextStyle(
-                fontFamily: 'monospace',
-                fontSize: 15,
-                fontWeight: FontWeight.w900,
-                letterSpacing: 1.5,
-                color: kBlack,
+            Expanded(
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  style: const TextStyle(
+                    fontFamily: 'monospace',
+                    fontSize: 15,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 1.5,
+                    color: kBlack,
+                  ),
+                ),
               ),
             ),
           ],
         ),
       ),
     );
+  }
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+//  Achievements (permanent trophies → cosmetic unlocks)
+// ────────────────────────────────────────────────────────────────────────────
+class AchievementsPage extends StatelessWidget {
+  final GameStore store;
+  const AchievementsPage({super.key, required this.store});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(20),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 600),
+              child: AnimatedBuilder(
+                animation: store,
+                builder: (context, _) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Row(
+                        children: [
+                          BrutalIconButton(
+                            icon: Icons.arrow_back,
+                            onPressed: () => Navigator.pop(context),
+                          ),
+                          const SizedBox(width: 12),
+                          const Expanded(
+                            child: Text(
+                              'ACHIEVEMENTS',
+                              style: TextStyle(
+                                fontFamily: 'monospace',
+                                fontSize: 20,
+                                fontWeight: FontWeight.w900,
+                                letterSpacing: 2,
+                              ),
+                            ),
+                          ),
+                          Text(
+                            '${store.unlockedAchievementCount}/${kAchievements.length}',
+                            style: const TextStyle(
+                              fontFamily: 'monospace',
+                              fontSize: 14,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      BrutalCard(
+                        bg: kCanarySoft,
+                        child: const Text(
+                          'PERMANENT TROPHIES. UNLOCKED ONES CAN ALSO '
+                          'UNLOCK PROFILE BANNER COLORS.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontFamily: 'monospace',
+                            fontSize: 11,
+                            height: 1.4,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      GridView.builder(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        itemCount: kAchievements.length,
+                        gridDelegate:
+                            const SliverGridDelegateWithMaxCrossAxisExtent(
+                              maxCrossAxisExtent: 190,
+                              mainAxisSpacing: 10,
+                              crossAxisSpacing: 10,
+                              childAspectRatio: 1.05,
+                            ),
+                        itemBuilder: (context, i) {
+                          final a = kAchievements[i];
+                          final unlocked = store.isAchievementUnlocked(a.id);
+                          final cur = store
+                              .progressFor(a.id)
+                              .clamp(0, a.target == 0 ? 1 : a.target);
+                          return BrutalCard(
+                            bg: unlocked ? kMint : Colors.white,
+                            shadow: kShadowSm,
+                            padding: const EdgeInsets.all(10),
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Opacity(
+                                  opacity: unlocked ? 1 : 0.45,
+                                  child: Text(
+                                    a.icon,
+                                    style: const TextStyle(fontSize: 30),
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  a.label,
+                                  textAlign: TextAlign.center,
+                                  style: const TextStyle(
+                                    fontFamily: 'monospace',
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w900,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  a.desc,
+                                  textAlign: TextAlign.center,
+                                  style: const TextStyle(
+                                    fontFamily: 'monospace',
+                                    fontSize: 8,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                                const SizedBox(height: 6),
+                                if (unlocked)
+                                  const Text(
+                                    'UNLOCKED ✓',
+                                    style: TextStyle(
+                                      fontFamily: 'monospace',
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w900,
+                                    ),
+                                  )
+                                else if (a.target > 0) ...[
+                                  Container(
+                                    height: 8,
+                                    decoration: BoxDecoration(
+                                      color: Colors.white,
+                                      border: Border.all(
+                                        color: kBlack,
+                                        width: 1.2,
+                                      ),
+                                    ),
+                                    child: FractionallySizedBox(
+                                      alignment: Alignment.centerLeft,
+                                      widthFactor: a.target == 0
+                                          ? 0
+                                          : (cur / a.target).clamp(0.0, 1.0),
+                                      child: Container(color: kCanary),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    '$cur/${a.target}',
+                                    style: const TextStyle(
+                                      fontFamily: 'monospace',
+                                      fontSize: 8,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                ] else
+                                  const Text(
+                                    'LOCKED 🔒',
+                                    style: TextStyle(
+                                      fontFamily: 'monospace',
+                                      fontSize: 9,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
+                      const SizedBox(height: 18),
+                      const Text(
+                        'PROFILE BANNERS',
+                        style: TextStyle(
+                          fontFamily: 'monospace',
+                          fontSize: 12,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 2,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      BrutalCard(
+                        bg: Colors.white,
+                        shadow: kShadowSm,
+                        padding: const EdgeInsets.all(12),
+                        child: Wrap(
+                          spacing: 10,
+                          runSpacing: 10,
+                          children: [
+                            for (final b in kProfileBanners)
+                              Container(
+                                width: 110,
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: b.color,
+                                  border: Border.all(color: kBlack, width: 2),
+                                ),
+                                child: Column(
+                                  children: [
+                                    Text(
+                                      store.isBannerUnlocked(b.id)
+                                          ? '✓ ${b.name}'
+                                          : '🔒 ${b.name}',
+                                      style: const TextStyle(
+                                        fontFamily: 'monospace',
+                                        fontSize: 9,
+                                        fontWeight: FontWeight.w900,
+                                      ),
+                                    ),
+                                    if (!store.isBannerUnlocked(b.id)) ...[
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        'UNLOCK ${_bannerRequirement(b.achievementId)}',
+                                        textAlign: TextAlign.center,
+                                        style: const TextStyle(
+                                          fontFamily: 'monospace',
+                                          fontSize: 7,
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  );
+                },
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  static String _bannerRequirement(String achievementId) {
+    for (final a in kAchievements) {
+      if (a.id == achievementId) return a.label;
+    }
+    return '';
   }
 }
 
@@ -1152,6 +1539,7 @@ class _GamePageState extends State<GamePage> {
     required int mult,
   }) {
     final isDraw = !p1Won && !p2Won;
+    if (!isDraw) showEmojiConfetti(context);
     String title;
     String emoji;
     if (isDraw) {
@@ -1378,7 +1766,7 @@ class _TurnStrip extends StatelessWidget {
   }
 }
 
-class _Board extends StatelessWidget {
+class _Board extends StatefulWidget {
   final List<String?> board;
   final List<int>? winningLine;
   final ValueChanged<int> onTap;
@@ -1393,12 +1781,60 @@ class _Board extends StatelessWidget {
   });
 
   @override
+  State<_Board> createState() => _BoardState();
+}
+
+class _BoardState extends State<_Board> with SingleTickerProviderStateMixin {
+  late final AnimationController _c = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 1100),
+  );
+
+  bool get _shouldAnimate =>
+      widget.theme.animated || (widget.winningLine != null);
+
+  @override
+  void initState() {
+    super.initState();
+    if (_shouldAnimate) _c.repeat(reverse: true);
+  }
+
+  @override
+  void didUpdateWidget(_Board old) {
+    super.didUpdateWidget(old);
+    if (_shouldAnimate && !_c.isAnimating) {
+      _c.repeat(reverse: true);
+    } else if (!_shouldAnimate && _c.isAnimating) {
+      _c.stop();
+      _c.value = 0;
+    }
+  }
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final pulse =
+        0.5 + 0.5 * math.sin(_c.value * 2 * math.pi); // 0..1 breathing wave
+    final bg =
+        widget.theme.animated
+            ? Color.lerp(
+                widget.theme.boardBg,
+                Color.lerp(widget.theme.boardBg, Colors.black, 0.35) ??
+                    widget.theme.boardBg,
+                pulse,
+              ) ??
+                widget.theme.boardBg
+            : widget.theme.boardBg;
     return Container(
-      padding: EdgeInsets.all(frame.width),
+      padding: EdgeInsets.all(widget.frame.width),
       decoration: BoxDecoration(
-        color: theme.boardBg,
-        border: Border.all(color: frame.color, width: frame.width),
+        color: bg,
+        border: Border.all(color: widget.frame.color, width: widget.frame.width),
         boxShadow: const [BoxShadow(color: kBlack, offset: Offset(6, 6))],
       ),
       child: AspectRatio(
@@ -1412,25 +1848,40 @@ class _Board extends StatelessWidget {
           ),
           itemCount: 9,
           itemBuilder: (context, i) {
-            final mark = board[i];
-            final isWin = winningLine?.contains(i) ?? false;
+            final mark = widget.board[i];
+            final isWin = widget.winningLine?.contains(i) ?? false;
             return GestureDetector(
               key: ValueKey('cell-$i'),
-              onTap: () => onTap(i),
+              onTap: () => widget.onTap(i),
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 120),
                 decoration: BoxDecoration(
                   color:
                       isWin
-                          ? theme.accent
-                          : (mark == null ? theme.cellBg : gradientColor(mark)),
+                          ? widget.theme.accent
+                          : (mark == null
+                              ? widget.theme.cellBg
+                              : gradientColor(mark)),
                   border: Border.all(color: kBlack, width: 2),
                   boxShadow: const [
                     BoxShadow(color: kBlack, offset: Offset(4, 4)),
                   ],
                 ),
                 child: Center(
-                  child: Text(mark ?? '', style: const TextStyle(fontSize: 40)),
+                  child: isWin
+                      ? ScaleTransition(
+                          scale: Tween(begin: 1.0, end: 1.14).animate(
+                            CurvedAnimation(
+                              parent: _c,
+                              curve: Curves.easeInOut,
+                            ),
+                          ),
+                          child: Text(
+                            mark ?? '',
+                            style: const TextStyle(fontSize: 40),
+                          ),
+                        )
+                      : Text(mark ?? '', style: const TextStyle(fontSize: 40)),
                 ),
               ),
             );
@@ -1465,6 +1916,48 @@ class StorePage extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  void _toast(BuildContext context, String msg, Color bg) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        backgroundColor: bg,
+        content: Text(
+          msg,
+          style: const TextStyle(
+            fontFamily: 'monospace',
+            fontWeight: FontWeight.w900,
+            color: kBlack,
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _tapTheme(BuildContext context, BoardTheme t) {
+    if (store.isThemeUnlocked(t.id)) {
+      store.selectTheme(t.id);
+      _toast(context, 'THEME: ${t.name}', kMint);
+    } else if (store.diamonds >= t.price) {
+      store.buyTheme(t.id);
+      store.selectTheme(t.id);
+      _toast(context, 'UNLOCKED ${t.name} (-${t.price}💎)', kMint);
+    } else {
+      _toast(context, 'NEED ${t.price}💎', kCoral);
+    }
+  }
+
+  void _tapFrame(BuildContext context, BoardFrame f) {
+    if (store.isFrameUnlocked(f.id)) {
+      store.selectFrame(f.id);
+      _toast(context, 'FRAME: ${f.name}', kMint);
+    } else if (store.diamonds >= f.price) {
+      store.buyFrame(f.id);
+      store.selectFrame(f.id);
+      _toast(context, 'UNLOCKED ${f.name} (-${f.price}💎)', kMint);
+    } else {
+      _toast(context, 'NEED ${f.price}💎', kCoral);
+    }
   }
 
   @override
@@ -1508,7 +2001,7 @@ class StorePage extends StatelessWidget {
                         bg: kCanarySoft,
                         child: const Text(
                           'WIN MATCHES TO EARN 💎. SPEND THEM HERE ON '
-                          'NEW FIGHTERS.',
+                          'FIGHTERS, BOARD BACKGROUNDS & FRAMES.',
                           textAlign: TextAlign.center,
                           style: TextStyle(
                             fontFamily: 'monospace',
@@ -1519,18 +2012,92 @@ class StorePage extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(height: 16),
-                      BrutalButton(
-                        label: '🎨 BOARD STYLE →',
-                        bg: kSky,
-                        fontSize: 13,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 14,
-                          vertical: 10,
+                      const Text(
+                        'BACKGROUNDS',
+                        style: TextStyle(
+                          fontFamily: 'monospace',
+                          fontSize: 12,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 2,
                         ),
-                        onPressed:
-                            () => pushBrutal(context, ThemesPage(store: store)),
                       ),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 8),
+                      GridView.builder(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        itemCount: kBoardThemes.length,
+                        gridDelegate:
+                            const SliverGridDelegateWithMaxCrossAxisExtent(
+                              maxCrossAxisExtent: 160,
+                              mainAxisSpacing: 10,
+                              crossAxisSpacing: 10,
+                              childAspectRatio: 0.9,
+                            ),
+                        itemBuilder: (context, i) {
+                          final t = kBoardThemes[i];
+                          final owned = store.isThemeUnlocked(t.id);
+                          return _ThemeTile(
+                            preview: t.preview,
+                            bg: t.boardBg,
+                            cellBg: t.cellBg,
+                            accent: t.accent,
+                            name: t.name,
+                            price: t.price,
+                            owned: owned,
+                            selected: store.theme.id == t.id,
+                            diamonds: store.diamonds,
+                            onTap: () => _tapTheme(context, t),
+                          );
+                        },
+                      ),
+                      const SizedBox(height: 18),
+                      const Text(
+                        'FRAMES',
+                        style: TextStyle(
+                          fontFamily: 'monospace',
+                          fontSize: 12,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 2,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      GridView.builder(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        itemCount: kBoardFrames.length,
+                        gridDelegate:
+                            const SliverGridDelegateWithMaxCrossAxisExtent(
+                              maxCrossAxisExtent: 140,
+                              mainAxisSpacing: 10,
+                              crossAxisSpacing: 10,
+                              childAspectRatio: 0.9,
+                            ),
+                        itemBuilder: (context, i) {
+                          final f = kBoardFrames[i];
+                          final owned = store.isFrameUnlocked(f.id);
+                          return _FrameTile(
+                            color: f.color,
+                            width: f.width,
+                            name: f.name,
+                            price: f.price,
+                            owned: owned,
+                            selected: store.frame.id == f.id,
+                            diamonds: store.diamonds,
+                            onTap: () => _tapFrame(context, f),
+                          );
+                        },
+                      ),
+                      const SizedBox(height: 18),
+                      const Text(
+                        'FIGHTERS',
+                        style: TextStyle(
+                          fontFamily: 'monospace',
+                          fontSize: 12,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 2,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
                       GridView.builder(
                         shrinkWrap: true,
                         physics: const NeverScrollableScrollPhysics(),
@@ -2078,193 +2645,6 @@ class _RankRow extends StatelessWidget {
   }
 }
 
-// ────────────────────────────────────────────────────────────────────────────
-//  Themes & frames store
-// ────────────────────────────────────────────────────────────────────────────
-class ThemesPage extends StatelessWidget {
-  final GameStore store;
-  const ThemesPage({super.key, required this.store});
-
-  void _toast(BuildContext context, String msg, Color bg) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        backgroundColor: bg,
-        content: Text(
-          msg,
-          style: const TextStyle(
-            fontFamily: 'monospace',
-            fontWeight: FontWeight.w900,
-            color: kBlack,
-          ),
-        ),
-      ),
-    );
-  }
-
-  void _tapTheme(BuildContext context, BoardTheme t) {
-    if (store.isThemeUnlocked(t.id)) {
-      store.selectTheme(t.id);
-      _toast(context, 'THEME: ${t.name}', kMint);
-    } else if (store.diamonds >= t.price) {
-      store.buyTheme(t.id);
-      store.selectTheme(t.id);
-      _toast(context, 'UNLOCKED ${t.name} (-${t.price}💎)', kMint);
-    } else {
-      _toast(context, 'NEED ${t.price}💎', kCoral);
-    }
-  }
-
-  void _tapFrame(BuildContext context, BoardFrame f) {
-    if (store.isFrameUnlocked(f.id)) {
-      store.selectFrame(f.id);
-      _toast(context, 'FRAME: ${f.name}', kMint);
-    } else if (store.diamonds >= f.price) {
-      store.buyFrame(f.id);
-      store.selectFrame(f.id);
-      _toast(context, 'UNLOCKED ${f.name} (-${f.price}💎)', kMint);
-    } else {
-      _toast(context, 'NEED ${f.price}💎', kCoral);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(20),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 600),
-              child: AnimatedBuilder(
-                animation: store,
-                builder: (context, _) {
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Row(
-                        children: [
-                          BrutalIconButton(
-                            icon: Icons.arrow_back,
-                            onPressed: () => Navigator.pop(context),
-                          ),
-                          const SizedBox(width: 12),
-                          const Expanded(
-                            child: Text(
-                              'BOARD STYLE',
-                              style: TextStyle(
-                                fontFamily: 'monospace',
-                                fontSize: 20,
-                                fontWeight: FontWeight.w900,
-                                letterSpacing: 2,
-                              ),
-                            ),
-                          ),
-                          DiamondBadge(diamonds: store.diamonds),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-                      BrutalCard(
-                        bg: kCanarySoft,
-                        child: const Text(
-                          'CUSTOMIZE THE BOARD. TAP TO USE, OR BUY WITH 💎.',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontFamily: 'monospace',
-                            fontSize: 12,
-                            height: 1.4,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      const Text(
-                        'BACKGROUNDS',
-                        style: TextStyle(
-                          fontFamily: 'monospace',
-                          fontSize: 12,
-                          fontWeight: FontWeight.w900,
-                          letterSpacing: 2,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      GridView.builder(
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        itemCount: kBoardThemes.length,
-                        gridDelegate:
-                            const SliverGridDelegateWithMaxCrossAxisExtent(
-                              maxCrossAxisExtent: 160,
-                              mainAxisSpacing: 10,
-                              crossAxisSpacing: 10,
-                              childAspectRatio: 0.9,
-                            ),
-                        itemBuilder: (context, i) {
-                          final t = kBoardThemes[i];
-                          final owned = store.isThemeUnlocked(t.id);
-                          return _ThemeTile(
-                            preview: t.preview,
-                            bg: t.boardBg,
-                            cellBg: t.cellBg,
-                            accent: t.accent,
-                            name: t.name,
-                            price: t.price,
-                            owned: owned,
-                            selected: store.theme.id == t.id,
-                            diamonds: store.diamonds,
-                            onTap: () => _tapTheme(context, t),
-                          );
-                        },
-                      ),
-                      const SizedBox(height: 18),
-                      const Text(
-                        'FRAMES',
-                        style: TextStyle(
-                          fontFamily: 'monospace',
-                          fontSize: 12,
-                          fontWeight: FontWeight.w900,
-                          letterSpacing: 2,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      GridView.builder(
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        itemCount: kBoardFrames.length,
-                        gridDelegate:
-                            const SliverGridDelegateWithMaxCrossAxisExtent(
-                              maxCrossAxisExtent: 140,
-                              mainAxisSpacing: 10,
-                              crossAxisSpacing: 10,
-                              childAspectRatio: 0.9,
-                            ),
-                        itemBuilder: (context, i) {
-                          final f = kBoardFrames[i];
-                          final owned = store.isFrameUnlocked(f.id);
-                          return _FrameTile(
-                            color: f.color,
-                            width: f.width,
-                            name: f.name,
-                            price: f.price,
-                            owned: owned,
-                            selected: store.frame.id == f.id,
-                            diamonds: store.diamonds,
-                            onTap: () => _tapFrame(context, f),
-                          );
-                        },
-                      ),
-                    ],
-                  );
-                },
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 class _ThemeTile extends StatelessWidget {
   final String preview;
   final Color bg;
@@ -2549,7 +2929,7 @@ class _ProfilePageState extends State<ProfilePage> {
                       ),
                       const SizedBox(height: 20),
                       BrutalCard(
-                        bg: kSky,
+                        bg: store.banner.color,
                         shadow: kShadow,
                         child: Column(
                           children: [
@@ -2631,6 +3011,56 @@ class _ProfilePageState extends State<ProfilePage> {
                       ],
                       const SizedBox(height: 16),
                       _ProfileStatsCard(store: store),
+                      const SizedBox(height: 14),
+                      _StreakCard(store: store),
+                      const SizedBox(height: 18),
+                      const Text(
+                        'PROFILE BANNER COLOR',
+                        style: TextStyle(
+                          fontFamily: 'monospace',
+                          fontSize: 10,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 1,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      BrutalCard(
+                        bg: store.banner.color,
+                        shadow: kShadowSm,
+                        padding: const EdgeInsets.all(12),
+                        child: Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: [
+                            for (final b in kProfileBanners)
+                              GestureDetector(
+                                onTap: store.isBannerUnlocked(b.id)
+                                    ? () => store.selectBanner(b.id)
+                                    : null,
+                                child: Container(
+                                  width: 52,
+                                  height: 40,
+                                  decoration: BoxDecoration(
+                                    color: b.color,
+                                    border: Border.all(
+                                      color: kBlack,
+                                      width: store.banner.id == b.id ? 3 : 1.5,
+                                    ),
+                                    boxShadow: store.banner.id == b.id
+                                        ? kShadowSm
+                                        : kShadowNone,
+                                  ),
+                                  child: Center(
+                                    child: Text(
+                                      store.isBannerUnlocked(b.id) ? '✓' : '🔒',
+                                      style: const TextStyle(fontSize: 14),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
                       const SizedBox(height: 18),
                       const Text(
                         'NICKNAME (SHOWN ON LEADERBOARD)',
@@ -2908,10 +3338,9 @@ class _ProfileStatsCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final s = store.services;
-    final matches = s.totalGames;
-    final wins = s.totalWins;
-    final draws = s.totalDraws;
+    final matches = store.playerGames;
+    final wins = store.playerWins;
+    final draws = store.playerDraws;
     final winPct = matches == 0 ? 0 : (wins * 100 ~/ matches);
     return BrutalCard(
       bg: Colors.white,
@@ -3592,11 +4021,27 @@ class OnlineLobbyPage extends StatefulWidget {
 class _OnlineLobbyPageState extends State<OnlineLobbyPage> {
   late Future<List<LobbyGame>> _future;
   String _myEmoji = '🐶';
+  bool _private = false;
+  final TextEditingController _code = TextEditingController();
+
+  static const _codeChars = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+
+  String _generateRoomCode() {
+    final r = math.Random();
+    return List.generate(5, (_) => _codeChars[r.nextInt(_codeChars.length)])
+        .join();
+  }
 
   @override
   void initState() {
     super.initState();
     _future = widget.store.services.fetchOpenGames();
+  }
+
+  @override
+  void dispose() {
+    _code.dispose();
+    super.dispose();
   }
 
   void _refresh() {
@@ -3606,15 +4051,112 @@ class _OnlineLobbyPageState extends State<OnlineLobbyPage> {
   }
 
   Future<void> _create() async {
+    final code = _private ? _generateRoomCode() : null;
     final id = await widget.store.services.createOnlineGame(
       hostEmoji: _myEmoji,
       hostName: widget.store.displayName,
+      roomCode: code,
     );
     if (id == null || !mounted) {
       if (mounted) _fail("COULDN'T CREATE GAME.");
       return;
     }
+    if (code != null) _showInviteDialog(code);
     _openGame(id, isHost: true, myEmoji: _myEmoji);
+  }
+
+  void _showInviteDialog(String code) {
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      barrierColor: kBlack.withValues(alpha: 0.6),
+      builder: (dialogContext) => Dialog(
+        backgroundColor: Colors.transparent,
+        child: BrutalCard(
+          bg: kLavender,
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('🔒', style: TextStyle(fontSize: 56)),
+              const SizedBox(height: 8),
+              const Text(
+                'PRIVATE ROOM CREATED',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontFamily: 'monospace',
+                  fontSize: 18,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 2,
+                ),
+              ),
+              const SizedBox(height: 6),
+              const Text(
+                'SHARE THIS CODE — FRIENDS ENTER IT IN THE LOBBY.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontFamily: 'monospace',
+                  fontSize: 10,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 14),
+              SelectableText(
+                code,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontFamily: 'monospace',
+                  fontSize: 36,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 8,
+                ),
+              ),
+              const SizedBox(height: 14),
+              BrutalButton(
+                label: 'COPY CODE',
+                bg: kCanary,
+                onPressed: () {
+                  Clipboard.setData(ClipboardData(text: code));
+                  ScaffoldMessenger.of(dialogContext).showSnackBar(
+                    const SnackBar(
+                      backgroundColor: kMint,
+                      content: Text(
+                        'CODE COPIED ✓',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontFamily: 'monospace',
+                          fontWeight: FontWeight.w900,
+                          color: kBlack,
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+              const SizedBox(height: 10),
+              BrutalButton(
+                label: 'GO TO LOBBY →',
+                bg: Colors.white,
+                onPressed: () => Navigator.pop(dialogContext),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _joinByCode() async {
+    final id = await widget.store.services.joinOnlineGameByCode(
+      _code.text,
+      guestEmoji: _myEmoji,
+      guestName: widget.store.displayName,
+    );
+    if (id == null || !mounted) {
+      if (mounted) _fail('NO OPEN PRIVATE GAME WITH THAT CODE.');
+      return;
+    }
+    _openGame(id, isHost: false, myEmoji: _myEmoji);
   }
 
   Future<void> _join(String id) async {
@@ -3743,8 +4285,109 @@ class _OnlineLobbyPageState extends State<OnlineLobbyPage> {
                       ),
                     ),
                     const SizedBox(height: 12),
+                    BrutalCard(
+                      bg: kLavender,
+                      shadow: kShadowSm,
+                      padding: const EdgeInsets.all(12),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Row(
+                            children: [
+                              const Expanded(
+                                child: Text(
+                                  '🔒 PRIVATE ROOM',
+                                  style: TextStyle(
+                                    fontFamily: 'monospace',
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w900,
+                                    letterSpacing: 2,
+                                  ),
+                                ),
+                              ),
+                              _OptionChip(
+                                active: _private,
+                                label: _private ? 'ON' : 'OFF',
+                                onTap: () =>
+                                    setState(() => _private = !_private),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                          const Text(
+                            'GENERATE AN INVITE CODE — FRIENDS JOIN THROUGH '
+                            'THE LOBBY INSTEAD OF RANDOM MATCHMAKING.',
+                            style: TextStyle(
+                              fontFamily: 'monospace',
+                              fontSize: 9,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                          const Text(
+                            'JOIN WITH A CODE',
+                            style: TextStyle(
+                              fontFamily: 'monospace',
+                              fontSize: 9,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: 1,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Container(
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    border: Border.all(color: kBlack, width: 2),
+                                  ),
+                                  child: TextField(
+                                    controller: _code,
+                                    textCapitalization:
+                                        TextCapitalization.characters,
+                                    maxLength: 5,
+                                    textAlign: TextAlign.center,
+                                    style: const TextStyle(
+                                      fontFamily: 'monospace',
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w900,
+                                      letterSpacing: 4,
+                                    ),
+                                    decoration: const InputDecoration(
+                                      counterText: '',
+                                      hintText: 'CODE',
+                                      border: InputBorder.none,
+                                      contentPadding: EdgeInsets.symmetric(
+                                        horizontal: 8,
+                                        vertical: 10,
+                                      ),
+                                    ),
+                                    onChanged: (_) => setState(() {}),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              BrutalButton(
+                                label: 'JOIN',
+                                bg: kMint,
+                                fontSize: 14,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 14,
+                                ),
+                                onPressed: _code.text.trim().length == 5
+                                    ? _joinByCode
+                                    : null,
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 12),
                     BrutalButton(
-                      label: '＋ CREATE GAME',
+                      label: _private ? '＋ CREATE PRIVATE GAME' : '＋ CREATE GAME',
                       bg: kCanary,
                       onPressed: _create,
                     ),
@@ -4035,6 +4678,7 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
       p1Win: iWon,
       p2Win: win.isNotEmpty && !iWon,
       playerWon: iWon,
+      online: true,
     );
     if (iWon) widget.store.addDiamonds(widget.store.winReward);
     widget.store.services.recordMatch(
@@ -4209,6 +4853,7 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
 
   void _showEndDialog() {
     final iWon = _winner.isNotEmpty && _winner == widget.myEmoji;
+    if (iWon) showEmojiConfetti(context);
     final title =
         iWon ? 'YOU WIN!' : (_winner.isNotEmpty ? 'YOU LOSE' : 'DRAW');
     final mark = _winner.isNotEmpty ? _winner : '🤝';
@@ -4507,4 +5152,121 @@ List<int>? _winningLineOf(List<String?> board, String mark) {
     }
   }
   return null;
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+//  Win-confetti emoji burst
+// ────────────────────────────────────────────────────────────────────────────
+class _ConfettiParticle {
+  final String emoji;
+  final double angle; // radians from screen center
+  final double distance;
+  final double size;
+  final double start; // 0..1 when this particle takes off
+  final int spin;
+  _ConfettiParticle({
+    required this.emoji,
+    required this.angle,
+    required this.distance,
+    required this.size,
+    required this.start,
+    required this.spin,
+  });
+}
+
+class EmojiConfettiOverlay extends StatefulWidget {
+  final VoidCallback onDone;
+  const EmojiConfettiOverlay({super.key, required this.onDone});
+
+  @override
+  State<EmojiConfettiOverlay> createState() => _EmojiConfettiOverlayState();
+}
+
+class _EmojiConfettiOverlayState extends State<EmojiConfettiOverlay>
+    with SingleTickerProviderStateMixin {
+  static const _emojis = ['🎉', '🎊', '✨', '💎', '⭐', '🌈', '🎈', '🥳'];
+
+  late final AnimationController _c = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 1700),
+  );
+  late final List<_ConfettiParticle> _parts;
+
+  @override
+  void initState() {
+    super.initState();
+    final rand = math.Random();
+    _parts = List.generate(26, (_) {
+      return _ConfettiParticle(
+        emoji: _emojis[rand.nextInt(_emojis.length)],
+        angle: rand.nextDouble() * 2 * math.pi,
+        distance: 70 + rand.nextDouble() * 160,
+        size: 18 + rand.nextDouble() * 20,
+        start: rand.nextDouble() * 0.25,
+        spin: rand.nextBool() ? 1 : -1,
+      );
+    });
+    _c.forward().whenComplete(widget.onDone);
+  }
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final size = MediaQuery.sizeOf(context);
+    final cx = size.width / 2;
+    final cy = size.height / 2 - 40;
+    return IgnorePointer(
+      child: AnimatedBuilder(
+        animation: _c,
+        builder: (context, _) {
+          return Stack(
+            children: [
+              for (final p in _parts)
+                Builder(
+                  builder: (context) {
+                    final raw = (_c.value - p.start) / (1 - p.start);
+                    final t = raw.clamp(0.0, 1.0);
+                    final eased = Curves.easeOutCubic.transform(t);
+                    final dx = math.cos(p.angle) * p.distance * eased;
+                    final dy = math.sin(p.angle) * p.distance * eased +
+                        70 * eased * eased;
+                    final fade =
+                        t > 0.7 ? (1 - (t - 0.7) / 0.3).clamp(0.0, 1.0) : 1.0;
+                    return Positioned(
+                      left: cx + dx - p.size / 2,
+                      top: cy + dy - p.size / 2,
+                      child: Opacity(
+                        opacity: fade,
+                        child: Transform.rotate(
+                          angle: p.spin * eased * math.pi * 2,
+                          child: Text(
+                            p.emoji,
+                            style: TextStyle(fontSize: p.size),
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+void showEmojiConfetti(BuildContext context) {
+  final overlay = Overlay.of(context, rootOverlay: true);
+  late final OverlayEntry entry;
+  entry = OverlayEntry(
+    builder: (_) =>
+        EmojiConfettiOverlay(onDone: () => entry.remove()),
+  );
+  overlay.insert(entry);
 }

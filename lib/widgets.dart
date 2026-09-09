@@ -3,53 +3,42 @@ import 'package:flutter/material.dart';
 import 'data.dart';
 import 'theme.dart';
 
-/// Header with app title + diamonds + store + leaderboard shortcuts.
+/// Header with diamonds + profile/store/leaderboard/achievements shortcuts.
 class HeaderRow extends StatelessWidget {
   final GameStore store;
   final VoidCallback onProfile;
   final VoidCallback onStore;
   final VoidCallback onLeaderboard;
+  final VoidCallback onAchievements;
   const HeaderRow({
     super.key,
     required this.store,
     required this.onProfile,
     required this.onStore,
     required this.onLeaderboard,
+    required this.onAchievements,
   });
 
   @override
   Widget build(BuildContext context) {
-    final isOnline = store.firebaseReady && store.user != null;
     return Row(
       children: [
-        Expanded(
-          child: Text(
-            'toemoji',
-            style: const TextStyle(
-              fontFamily: 'monospace',
-              fontSize: 18,
-              height: 0.9,
-              fontWeight: FontWeight.w900,
-              letterSpacing: 1.2,
-              color: kBlack,
-            ),
-          ),
-        ),
-        const SizedBox(width: 8),
+        const Spacer(),
         DiamondBadge(diamonds: store.diamonds),
-        const SizedBox(width: 8),
+        const SizedBox(width: 6),
         BrutalIconButton(icon: Icons.person_outline, onPressed: onProfile),
-        const SizedBox(width: 8),
+        const SizedBox(width: 6),
         BrutalIconButton(icon: Icons.store_outlined, onPressed: onStore),
-        const SizedBox(width: 8),
+        const SizedBox(width: 6),
         BrutalIconButton(
           icon: Icons.emoji_events_outlined,
           onPressed: onLeaderboard,
         ),
-        if (isOnline) ...[
-          const SizedBox(width: 8),
-          const Text('⚡', style: TextStyle(fontSize: 18)),
-        ],
+        const SizedBox(width: 6),
+        BrutalIconButton(
+          icon: Icons.workspace_premium_outlined,
+          onPressed: onAchievements,
+        ),
       ],
     );
   }
@@ -132,7 +121,6 @@ class ScoreBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final s = store.services;
     return Row(
       children: [
         if (store.user != null)
@@ -148,11 +136,11 @@ class ScoreBar extends StatelessWidget {
               ),
             ),
           ),
-        _Stat(label: 'W', value: '${s.totalWins}'),
+        _Stat(label: 'W', value: '${store.playerWins}'),
         const SizedBox(width: 6),
-        _Stat(label: 'D', value: '${s.totalDraws}'),
+        _Stat(label: 'D', value: '${store.playerDraws}'),
         const SizedBox(width: 6),
-        _Stat(label: 'G', value: '${s.totalGames}'),
+        _Stat(label: 'G', value: '${store.playerGames}'),
         if (store.winStreak > 0) ...[
           const SizedBox(width: 6),
           _Stat(label: '🔥', value: '${store.winStreak}'),

@@ -189,7 +189,7 @@ class _BrutalIconButtonState extends State<BrutalIconButton> {
       onTap: widget.onPressed,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 80),
-        padding: const EdgeInsets.all(10),
+        padding: const EdgeInsets.all(7),
         transform: _pressed
             ? Matrix4.translationValues(2, 2, 0)
             : Matrix4.identity(),
@@ -198,7 +198,7 @@ class _BrutalIconButtonState extends State<BrutalIconButton> {
           border: Border.all(color: kBlack, width: 2),
           boxShadow: _pressed ? kShadowNone : kShadowSm,
         ),
-        child: Icon(widget.icon, color: kBlack, size: 24),
+        child: Icon(widget.icon, color: kBlack, size: 22),
       ),
     );
   }

@@ -74,6 +74,7 @@ class BoardTheme {
   final Color cellBg; // empty cell
   final Color accent; // win / highlight
   final int price; // 0 = free
+  final bool animated; // breath/pulse the board + winning cells
   const BoardTheme({
     required this.id,
     required this.name,
@@ -82,6 +83,7 @@ class BoardTheme {
     required this.cellBg,
     required this.accent,
     this.price = 0,
+    this.animated = false,
   });
 }
 
@@ -154,6 +156,26 @@ const List<BoardTheme> kBoardThemes = [
     accent: Color(0xFF854D0E),
     price: 15,
   ),
+  BoardTheme(
+    id: 'nebula',
+    name: 'Nebula',
+    preview: '🌌',
+    boardBg: Color(0xFF312E81),
+    cellBg: Color(0xFF4338CA),
+    accent: Color(0xFFA78BFA),
+    price: 20,
+    animated: true,
+  ),
+  BoardTheme(
+    id: 'neon',
+    name: 'Neon',
+    preview: '💜',
+    boardBg: Color(0xFF0B0B0F),
+    cellBg: Color(0xFF1F1F2E),
+    accent: Color(0xFF22D3EE),
+    price: 20,
+    animated: true,
+  ),
 ];
 
 class BoardFrame {
@@ -201,6 +223,150 @@ class QuestStatus {
   bool get done => current >= target;
 }
 
+// ────────────────────────────────────────────────────────────────────────────
+//  Achievements (permanent trophies + cosmetic unlocks)
+// ────────────────────────────────────────────────────────────────────────────
+class Achievement {
+  final String id;
+  final String icon;
+  final String label;
+  final String desc;
+  final int target; // 0 = binary (shown as a check), else x/y progress
+  const Achievement({
+    required this.id,
+    required this.icon,
+    required this.label,
+    required this.desc,
+    this.target = 0,
+  });
+}
+
+const List<Achievement> kAchievements = [
+  Achievement(
+    id: 'first_win',
+    icon: '🎯',
+    label: 'FIRST WIN',
+    desc: 'WIN YOUR FIRST MATCH',
+  ),
+  Achievement(
+    id: 'wins_10',
+    icon: '🥉',
+    label: '10 WINS',
+    desc: 'WIN 10 MATCHES',
+    target: 10,
+  ),
+  Achievement(
+    id: 'wins_25',
+    icon: '🥈',
+    label: '25 WINS',
+    desc: 'WIN 25 MATCHES',
+    target: 25,
+  ),
+  Achievement(
+    id: 'wins_50',
+    icon: '🥇',
+    label: '50 WINS',
+    desc: 'WIN 50 MATCHES',
+    target: 50,
+  ),
+  Achievement(
+    id: 'streak_3',
+    icon: '🔥',
+    label: '3-IN-A-ROW',
+    desc: 'WIN 3 MATCHES IN A ROW',
+  ),
+  Achievement(
+    id: 'streak_7',
+    icon: '🚀',
+    label: '7-IN-A-ROW',
+    desc: 'WIN 7 MATCHES IN A ROW',
+  ),
+  Achievement(
+    id: 'games_20',
+    icon: '🎮',
+    label: '20 MATCHES',
+    desc: 'PLAY 20 MATCHES',
+    target: 20,
+  ),
+  Achievement(
+    id: 'online_win',
+    icon: '⚔️',
+    label: 'ONLINE VICTORY',
+    desc: 'WIN AN ONLINE MATCH',
+  ),
+  Achievement(
+    id: 'collector',
+    icon: '🛍️',
+    label: 'COLLECTOR',
+    desc: 'OWN 15 EMOJI',
+    target: 15,
+  ),
+  Achievement(
+    id: 'gems_200',
+    icon: '💎',
+    label: 'GEM HOUND',
+    desc: 'EARN 200 GEMS TOTAL',
+    target: 200,
+  ),
+  Achievement(
+    id: 'day_7',
+    icon: '📅',
+    label: 'WEEK STREAK',
+    desc: 'HIT A 7-DAY LOGIN STREAK',
+  ),
+];
+
+class ProfileBanner {
+  final String id;
+  final String name;
+  final Color color;
+  final String achievementId; // required to unlock; '' = always available
+  const ProfileBanner({
+    required this.id,
+    required this.name,
+    required this.color,
+    this.achievementId = '',
+  });
+}
+
+const List<ProfileBanner> kProfileBanners = [
+  ProfileBanner(
+    id: 'sky',
+    name: 'Sky',
+    color: Color(0xFFBAE6FD),
+  ),
+  ProfileBanner(
+    id: 'sunset',
+    name: 'Sunset',
+    color: Color(0xFFFDA4AF),
+    achievementId: 'wins_10',
+  ),
+  ProfileBanner(
+    id: 'ocean',
+    name: 'Ocean',
+    color: Color(0xFF60A5FA),
+    achievementId: 'wins_25',
+  ),
+  ProfileBanner(
+    id: 'canary',
+    name: 'Canary',
+    color: Color(0xFFFDE047),
+    achievementId: 'streak_3',
+  ),
+  ProfileBanner(
+    id: 'mint',
+    name: 'Mint',
+    color: Color(0xFF34D399),
+    achievementId: 'wins_50',
+  ),
+  ProfileBanner(
+    id: 'gold',
+    name: 'Gold',
+    color: Color(0xFFF59E0B),
+    achievementId: 'gems_200',
+  ),
+];
+
 /// Holds the profile-less game state shared across pages.
 /// Firebase/profile/leaderboard live in [AppServices], which the store
 /// re-broadcasts so any listener on the store sees service changes too.
@@ -222,6 +388,23 @@ class GameStore extends ChangeNotifier {
   String _bonusDate = '';
   final Set<String> _claimedToday = {};
   int _totalGemsEarned = 0;
+
+  // Login streak calendar
+  final Set<String> _logins = {};
+  int _bestDayStreak = 0;
+  int _onlineWins = 0;
+
+  // Lifetime best win-in-a-row (for achievements).
+  int _maxWinStreak = 0;
+
+  // Lifetime stats from the active player's perspective (accurate W/D/G).
+  int _playerGames = 0;
+  int _playerWins = 0;
+  int _playerDraws = 0;
+
+  // Achievements + profile banner
+  final Set<String> _unlockedAchievements = {};
+  String _bannerId = kProfileBanners.first.id;
 
   static const String _stateKey = 'ttt_state_v2';
 
@@ -267,6 +450,103 @@ class GameStore extends ChangeNotifier {
   int framePrice(String id) =>
       kBoardFrames.firstWhere((f) => f.id == id).price;
 
+  // ── Login streak calendar ────────────────────────────────────────────────
+  int get dayMultiplier => dayStreak >= 7 ? 3 : (dayStreak >= 3 ? 2 : 1);
+  int get dayReward => todayBonus * dayMultiplier;
+
+  /// Streak of consecutive days that had activity (a claim or a played
+  /// round), counting back from today — or from yesterday while today is
+  /// still pending so the run isn't shown as broken before tonight.
+  int get dayStreak {
+    if (_logins.isEmpty) return 0;
+    var streak = 0;
+    var cursor = DateTime.now();
+    if (!_logins.contains(_keyOf(cursor))) {
+      cursor = cursor.subtract(const Duration(days: 1));
+    }
+    while (_logins.contains(_keyOf(cursor))) {
+      streak += 1;
+      cursor = cursor.subtract(const Duration(days: 1));
+    }
+    return streak;
+  }
+
+  int get bestDayStreak => _bestDayStreak;
+  bool wasActiveOn(DateTime d) => _logins.contains(_keyOf(d));
+
+  static String _keyOf(DateTime d) =>
+      '${d.year}-${d.month.toString().padLeft(2, '0')}-'
+      '${d.day.toString().padLeft(2, '0')}';
+
+  void _recordLogin() {
+    _logins.add(_todayKey);
+    final s = dayStreak;
+    if (s > _bestDayStreak) _bestDayStreak = s;
+    _evaluateAchievements();
+    _save();
+  }
+
+  // ── Achievements / banners ───────────────────────────────────────────────
+  bool isAchievementUnlocked(String id) => _unlockedAchievements.contains(id);
+  int get unlockedAchievementCount => _unlockedAchievements.length;
+
+  int progressFor(String id) => switch (id) {
+        'wins_10' || 'wins_25' || 'wins_50' => _playerWins,
+        'streak_3' || 'streak_7' => _maxWinStreak,
+        'games_20' => _playerGames,
+        'online_win' => _onlineWins,
+        'collector' => _unlocked.length,
+        'gems_200' => _totalGemsEarned,
+        'day_7' => _bestDayStreak,
+        _ => 0,
+      };
+
+  bool shouldUnlock(String id) {
+    return switch (id) {
+      'first_win' => _playerWins >= 1,
+      'wins_10' => _playerWins >= 10,
+      'wins_25' => _playerWins >= 25,
+      'wins_50' => _playerWins >= 50,
+      'streak_3' => _maxWinStreak >= 3,
+      'streak_7' => _maxWinStreak >= 7,
+      'games_20' => _playerGames >= 20,
+      'online_win' => _onlineWins >= 1,
+      'collector' => _unlocked.length >= 15,
+      'gems_200' => _totalGemsEarned >= 200,
+      'day_7' => _bestDayStreak >= 7,
+      _ => false,
+    };
+  }
+
+  void _evaluateAchievements() {
+    var changed = false;
+    for (final a in kAchievements) {
+      if (!_unlockedAchievements.contains(a.id) && shouldUnlock(a.id)) {
+        _unlockedAchievements.add(a.id);
+        changed = true;
+      }
+    }
+    if (changed) {
+      _save();
+      notifyListeners();
+    }
+  }
+
+  ProfileBanner get banner =>
+      kProfileBanners.firstWhere((b) => b.id == _bannerId, orElse: () => kProfileBanners.first);
+  bool isBannerUnlocked(String id) {
+    final b = kProfileBanners.firstWhere((x) => x.id == id);
+    return b.achievementId.isEmpty || _unlockedAchievements.contains(b.achievementId);
+  }
+
+  void selectBanner(String id) {
+    if (isBannerUnlocked(id) && _bannerId != id) {
+      _bannerId = id;
+      _save();
+      notifyListeners();
+    }
+  }
+
   // ── Streak / rewards ──────────────────────────────────────────────────────
   int get streakMultiplier => winStreak >= 7 ? 3 : (winStreak >= 3 ? 2 : 1);
   int get winReward => kWinReward * streakMultiplier;
@@ -275,11 +555,16 @@ class GameStore extends ChangeNotifier {
     if (amount <= 0) return;
     _diamonds += amount;
     _totalGemsEarned += amount;
+    _evaluateAchievements();
     _save();
     notifyListeners();
   }
 
   int get totalGemsEarned => _totalGemsEarned;
+
+  int get playerGames => _playerGames;
+  int get playerWins => _playerWins;
+  int get playerDraws => _playerDraws;
 
   // ── Shopping ──────────────────────────────────────────────────────────────
   bool buy(String emoji) {
@@ -289,6 +574,7 @@ class GameStore extends ChangeNotifier {
     }
     _diamonds -= price;
     _unlocked.add(emoji);
+    _evaluateAchievements();
     _save();
     notifyListeners();
     return true;
@@ -353,7 +639,8 @@ class GameStore extends ChangeNotifier {
   Future<int?> claimDaily() async {
     if (!canClaimDaily) return null;
     _bonusDate = _todayKey;
-    final amount = todayBonus;
+    _recordLogin();
+    final amount = dayReward;
     addDiamonds(amount);
     await _save();
     return amount;
@@ -404,8 +691,11 @@ class GameStore extends ChangeNotifier {
     required bool p1Win,
     required bool p2Win,
     required bool playerWon,
+    bool online = false,
   }) {
     winStreak = playerWon ? winStreak + 1 : 0;
+    if (winStreak > _maxWinStreak) _maxWinStreak = winStreak;
+    if (online && playerWon) _onlineWins += 1;
     if (_questDate != _todayKey) {
       _questDate = _todayKey;
       questWins = 0;
@@ -418,8 +708,16 @@ class GameStore extends ChangeNotifier {
       questWins += 1;
       if (winStreak >= 3) _streakReachedToday = true;
     }
+    _playerGames += 1;
+    if (playerWon) {
+      _playerWins += 1;
+    } else if (!p1Win && !p2Win) {
+      _playerDraws += 1;
+    }
+    _recordLogin();
     _save();
     services.recordResult(p1Win: p1Win, p2Win: p2Win);
+    _evaluateAchievements();
     notifyListeners();
   }
 
@@ -444,7 +742,18 @@ class GameStore extends ChangeNotifier {
       _claimedToday.addAll((j['claimed'] as List?)?.cast<String>() ?? const []);
       _bonusDate = (j['bonus'] as String?) ?? '';
       _totalGemsEarned = (j['ge'] as num?)?.toInt() ?? 0;
+      _logins.addAll((j['logins'] as List?)?.cast<String>() ?? const []);
+      _bestDayStreak = (j['bs'] as num?)?.toInt() ?? 0;
+      _maxWinStreak = (j['ms'] as num?)?.toInt() ?? 0;
+      _onlineWins = (j['ow'] as num?)?.toInt() ?? 0;
+      _playerGames = (j['pg'] as num?)?.toInt() ?? 0;
+      _playerWins = (j['pw'] as num?)?.toInt() ?? 0;
+      _playerDraws = (j['pd'] as num?)?.toInt() ?? 0;
+      _unlockedAchievements
+          .addAll((j['ach'] as List?)?.cast<String>() ?? const []);
+      _bannerId = (j['banner'] as String?) ?? _bannerId;
     } catch (_) {}
+    _evaluateAchievements();
     notifyListeners();
   }
 
@@ -468,6 +777,15 @@ class GameStore extends ChangeNotifier {
           'claimed': _claimedToday.toList(),
           'bonus': _bonusDate,
           'ge': _totalGemsEarned,
+          'logins': _logins.toList(),
+          'bs': _bestDayStreak,
+          'ms': _maxWinStreak,
+          'ow': _onlineWins,
+          'pg': _playerGames,
+          'pw': _playerWins,
+          'pd': _playerDraws,
+          'ach': _unlockedAchievements.toList(),
+          'banner': _bannerId,
         }),
       );
     } catch (_) {}

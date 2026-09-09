@@ -8,7 +8,7 @@ void main() {
     await tester.pumpWidget(const ToEmoji());
     await tester.pumpAndSettle();
 
-    expect(find.text('toemoji'), findsOneWidget);
+    expect(find.byIcon(Icons.store_outlined), findsOneWidget);
     expect(find.text('🎮 CUSTOM GAME'), findsOneWidget);
     expect(find.textContaining('ONLINE PVP'), findsNothing);
 
@@ -138,7 +138,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('themes page renders without overflow on narrow screen',
+  testWidgets('store shows boards, frames and fighters without overflow',
       (tester) async {
     tester.view.physicalSize = const Size(320, 640);
     tester.view.devicePixelRatio = 1.0;
@@ -150,14 +150,16 @@ void main() {
     await tester.tap(find.byIcon(Icons.store_outlined));
     await tester.pumpAndSettle();
 
-    await tester.ensureVisible(find.text('🎨 BOARD STYLE →'));
-    await tester.pump();
-    await tester.tap(find.text('🎨 BOARD STYLE →'));
-    await tester.pumpAndSettle();
-
-    expect(find.text('BOARD STYLE'), findsOneWidget);
+    expect(find.text('EMOJI STORE'), findsOneWidget);
     expect(find.text('BACKGROUNDS'), findsOneWidget);
+
+    await tester.ensureVisible(find.text('FRAMES'));
+    await tester.pump();
     expect(find.text('FRAMES'), findsOneWidget);
+
+    await tester.ensureVisible(find.text('FIGHTERS'));
+    await tester.pump();
+    expect(find.text('FIGHTERS'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 }
