@@ -1097,14 +1097,20 @@ class _EmojiSelectionBodyState extends State<_EmojiSelectionBody> {
               child: _PickerHeader(
                 label: 'PLAYER 1',
                 selected: _p1,
-                onRandom: () => setState(() => _p1 = _randomFree(widget.store)),
+                onRandom: () => setState(() => _p1 = _randomFree(widget.store, except: _p2)),
               ),
             ),
             const SizedBox(height: 8),
             _EmojiGrid(
               store: widget.store,
               selected: _p1,
-              onPick: (e) => setState(() => _p1 = e),
+              takenEmoji: vsAi ? null : _p2,
+              onPick: (e) => setState(() {
+                _p1 = e;
+                if (!vsAi && _p2 == e) {
+                  _p2 = _nextFree(widget.store, except: e);
+                }
+              }),
             ),
             const SizedBox(height: 14),
             BrutalCard(
@@ -1122,8 +1128,7 @@ class _EmojiSelectionBodyState extends State<_EmojiSelectionBody> {
                         label: 'PLAYER 2',
                         selected: _p2,
                         onRandom:
-                            () =>
-                                setState(() => _p2 = _randomFree(widget.store)),
+                            () => setState(() => _p2 = _randomFree(widget.store, except: _p1)),
                       ),
             ),
             if (!vsAi) ...[
@@ -1131,7 +1136,13 @@ class _EmojiSelectionBodyState extends State<_EmojiSelectionBody> {
               _EmojiGrid(
                 store: widget.store,
                 selected: _p2,
-                onPick: (e) => setState(() => _p2 = e),
+                takenEmoji: _p1,
+                onPick: (e) => setState(() {
+                  _p2 = e;
+                  if (e == _p1) {
+                    _p1 = _nextFree(widget.store, except: e);
+                  }
+                }),
               ),
             ],
             const SizedBox(height: 18),
@@ -1156,8 +1167,24 @@ class _EmojiSelectionBodyState extends State<_EmojiSelectionBody> {
     );
   }
 
-  String _randomFree(GameStore store) {
-    final free = kCatalog.where((i) => store.isUnlocked(i.emoji)).toList();
+  String _nextFree(GameStore store, {required String except}) {
+    for (final item in kCatalog) {
+      if (store.isUnlocked(item.emoji) &&
+          item.emoji != except &&
+          item.emoji != kAiEmoji) {
+        return item.emoji;
+      }
+    }
+    return kCatalog.first.emoji;
+  }
+
+  String _randomFree(GameStore store, {required String except}) {
+    final free = kCatalog
+        .where(
+          (i) => store.isUnlocked(i.emoji) && i.emoji != except && i.emoji != kAiEmoji,
+        )
+        .toList();
+    if (free.isEmpty) return _nextFree(store, except: except);
     return free[math.Random().nextInt(free.length)].emoji;
   }
 
@@ -1274,10 +1301,12 @@ class _OptionChip extends StatelessWidget {
 class _EmojiGrid extends StatelessWidget {
   final GameStore store;
   final String selected;
+  final String? takenEmoji;
   final ValueChanged<String> onPick;
   const _EmojiGrid({
     required this.store,
     required this.selected,
+    this.takenEmoji,
     required this.onPick,
   });
 
@@ -1299,6 +1328,7 @@ class _EmojiGrid extends StatelessWidget {
           item: item,
           selected: selected == item.emoji,
           unlocked: unlocked,
+          taken: item.emoji == takenEmoji,
           onTap: () => onPick(item.emoji),
         );
       },
@@ -4150,29 +4180,49 @@ class _OnlineLobbyPageState extends State<OnlineLobbyPage> {
   }
 
   Future<void> _joinByCode() async {
-    final id = await widget.store.services.joinOnlineGameByCode(
+    final (id, used) = await widget.store.services.joinOnlineGameByCode(
       _code.text,
       guestEmoji: _myEmoji,
       guestName: widget.store.displayName,
     );
-    if (id == null || !mounted) {
+    if (id == null || used == null || !mounted) {
       if (mounted) _fail('NO OPEN PRIVATE GAME WITH THAT CODE.');
       return;
     }
-    _openGame(id, isHost: false, myEmoji: _myEmoji);
+    if (used != _myEmoji) _sayFighterChanged(used);
+    _openGame(id, isHost: false, myEmoji: used);
   }
 
   Future<void> _join(String id) async {
-    final ok = await widget.store.services.joinOnlineGame(
+    final used = await widget.store.services.joinOnlineGame(
       id,
       guestEmoji: _myEmoji,
       guestName: widget.store.displayName,
     );
-    if (!ok || !mounted) {
+    if (used == null || !mounted) {
       if (mounted) _fail('GAME IS GONE / TAKEN.');
       return;
     }
-    _openGame(id, isHost: false, myEmoji: _myEmoji);
+    if (used != _myEmoji) _sayFighterChanged(used);
+    _openGame(id, isHost: false, myEmoji: used);
+  }
+
+  void _sayFighterChanged(String emoji) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        backgroundColor: kLavender,
+        duration: const Duration(seconds: 3),
+        content: Text(
+          'THAT FIGHTER IS TAKEN — YOU PLAY AS $emoji',
+          textAlign: TextAlign.center,
+          style: const TextStyle(
+            fontFamily: 'monospace',
+            fontWeight: FontWeight.w900,
+            color: kBlack,
+          ),
+        ),
+      ),
+    );
   }
 
   void _openGame(

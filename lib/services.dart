@@ -715,16 +715,18 @@ class AppServices extends ChangeNotifier {
     }
   }
 
-  /// Finds an open private room by its invite code and joins it. Returns the
-  /// joined game's id (same shape as [createOnlineGame]).
-  Future<String?> joinOnlineGameByCode(
+  /// Finds an open private room by its invite code and joins it. Returns a
+  /// `(gameId, emojiActuallyUsed)` pair so the caller knows which fighter the
+  /// guest ended up with (it may have been auto-swapped to avoid a clash with
+  /// the host's emoji). Null id or null emoji means joining failed.
+  Future<(String?, String?)> joinOnlineGameByCode(
     String code, {
     required String guestEmoji,
     required String guestName,
   }) async {
-    if (!online || _db == null || _auth == null) return null;
+    if (!online || _db == null || _auth == null) return (null, null);
     final normalized = code.trim().toUpperCase();
-    if (normalized.isEmpty) return null;
+    if (normalized.isEmpty) return (null, null);
     try {
       final q = await _db!
           .collection('onlineOpen')
@@ -732,43 +734,72 @@ class AppServices extends ChangeNotifier {
           .where('status', isEqualTo: 'open')
           .limit(1)
           .get();
-      if (q.docs.isEmpty) return null;
+      if (q.docs.isEmpty) return (null, null);
       final id = q.docs.first.id;
-      final ok = await joinOnlineGame(
+      final used = await joinOnlineGame(
         id,
         guestEmoji: guestEmoji,
         guestName: guestName,
       );
-      return ok ? id : null;
+      return (used == null ? null : id, used);
+    } catch (_) {
+      return (null, null);
+    }
+  }
+
+  /// Joins an online match. Returns the guest's emoji actually used (it is
+  /// swapped to a different fighter when it would match the host's), or null
+  /// when the game can't be joined.
+  Future<String?> joinOnlineGame(
+    String id, {
+    required String guestEmoji,
+    required String guestName,
+  }) async {
+    if (!online || _db == null || _auth == null) return null;
+    try {
+      final ref = _db!.collection('onlineOpen').doc(id);
+      return await _db!.runTransaction((tx) async {
+        final snap = await tx.get(ref);
+        if (!snap.exists) return null;
+        final data = snap.data()!;
+        if (data['status'] != 'open') return null;
+        var used = guestEmoji;
+        final hostEmoji = (data['hostEmoji'] as String?) ?? '';
+        if (used == hostEmoji) {
+          used = _otherFighter(hostEmoji);
+        }
+        tx.update(ref, {
+          'guestUid': _auth!.currentUser!.uid,
+          'guestName': guestName,
+          'guestEmoji': used,
+          'status': 'playing',
+        });
+        return used;
+      });
     } catch (_) {
       return null;
     }
   }
 
-  Future<bool> joinOnlineGame(
-    String id, {
-    required String guestEmoji,
-    required String guestName,
-  }) async {
-    if (!online || _db == null || _auth == null) return false;
-    try {
-      final ref = _db!.collection('onlineOpen').doc(id);
-      return await _db!.runTransaction((tx) async {
-        final snap = await tx.get(ref);
-        if (!snap.exists) return false;
-        final data = snap.data()!;
-        if (data['status'] != 'open') return false;
-        tx.update(ref, {
-          'guestUid': _auth!.currentUser!.uid,
-          'guestName': guestName,
-          'guestEmoji': guestEmoji,
-          'status': 'playing',
-        });
-        return true;
-      });
-    } catch (_) {
-      return false;
+  /// The first non-colliding starter fighter for a guest.
+  static String _otherFighter(String clashWith) {
+    for (final e in const [
+      '🐶',
+      '😸',
+      '🐼',
+      '🐵',
+      '🦊',
+      '🐻',
+      '🐨',
+      '🐯',
+      '🐸',
+      '🦁',
+      '🐮',
+      '🦄',
+    ]) {
+      if (e != clashWith) return e;
     }
+    return '🐼';
   }
 
   Future<void> closeOnlineGame(String id) async {

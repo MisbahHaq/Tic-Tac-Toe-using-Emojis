@@ -49,27 +49,31 @@ class EmojiTile extends StatelessWidget {
   final EmojiItem item;
   final bool selected;
   final bool unlocked;
+  final bool taken;
   final VoidCallback onTap;
   const EmojiTile({
     super.key,
     required this.item,
     required this.selected,
     required this.unlocked,
+    this.taken = false,
     required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: unlocked ? onTap : null,
+      onTap: unlocked && !taken ? onTap : null,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 120),
         padding: const EdgeInsets.all(10),
         decoration: BoxDecoration(
           color:
-              selected
-                  ? kCanary
-                  : (unlocked ? Colors.white : const Color(0xFFE5E5E5)),
+              taken
+                  ? const Color(0xFFB5B5B5)
+                  : (selected
+                      ? kCanary
+                      : (unlocked ? Colors.white : const Color(0xFFE5E5E5))),
           border: Border.all(color: kBlack, width: selected ? 3 : 2),
           boxShadow:
               selected
@@ -94,9 +98,11 @@ class EmojiTile extends StatelessWidget {
             FittedBox(
               fit: BoxFit.scaleDown,
               child: Text(
-                unlocked
-                    ? (item.price == 0 ? item.name : item.emoji)
-                    : '🔒 ${item.price}💎',
+                taken
+                    ? '🔒 TAKEN'
+                    : (unlocked
+                        ? (item.price == 0 ? item.name : item.emoji)
+                        : '🔒 ${item.price}💎'),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
