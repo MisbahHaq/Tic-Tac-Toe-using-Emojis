@@ -458,6 +458,38 @@ class AppServices extends ChangeNotifier {
     } catch (_) {}
   }
 
+  /// Backs up the player's progression (gems, unlocks, streaks, daily bonus)
+  /// to their Firestore profile so signing in restores it on any device.
+  Future<void> saveCloudState(Map<String, dynamic> state) async {
+    if (!online || _db == null || _auth == null) return;
+    try {
+      await _db!.collection('users').doc(_auth!.currentUser!.uid).set(
+        {
+          'state': jsonEncode(state),
+          'atMs': DateTime.now().millisecondsSinceEpoch,
+        },
+        SetOptions(merge: true),
+      );
+    } catch (_) {}
+  }
+
+  /// The player's last backed-up progression, or null if never saved.
+  Future<Map<String, dynamic>?> fetchCloudState() async {
+    if (!online || _db == null || _auth == null) return null;
+    try {
+      final d = (await _db!
+              .collection('users')
+              .doc(_auth!.currentUser!.uid)
+              .get())
+          .data();
+      final raw = d?['state'] as String?;
+      if (raw == null || raw.isEmpty) return null;
+      return (jsonDecode(raw) as Map<String, dynamic>).cast<String, dynamic>();
+    } catch (_) {
+      return null;
+    }
+  }
+
   /// Leaderboard rows: cloud rows (when online) merged with every account
   /// that has played on this device, so a signed-in account is always
   /// visible even if the cloud can't be reached.

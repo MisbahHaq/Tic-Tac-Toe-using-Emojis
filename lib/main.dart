@@ -4061,12 +4061,15 @@ class _OnlineLobbyPageState extends State<OnlineLobbyPage> {
       if (mounted) _fail("COULDN'T CREATE GAME.");
       return;
     }
-    if (code != null) _showInviteDialog(code);
-    _openGame(id, isHost: true, myEmoji: _myEmoji);
+    if (code != null) {
+      await _showInviteDialog(code);
+      if (!mounted) return;
+    }
+    _openGame(id, isHost: true, myEmoji: _myEmoji, roomCode: code);
   }
 
-  void _showInviteDialog(String code) {
-    showDialog(
+  Future<void> _showInviteDialog(String code) {
+    return showDialog<void>(
       context: context,
       barrierDismissible: true,
       barrierColor: kBlack.withValues(alpha: 0.6),
@@ -4135,7 +4138,7 @@ class _OnlineLobbyPageState extends State<OnlineLobbyPage> {
               ),
               const SizedBox(height: 10),
               BrutalButton(
-                label: 'GO TO LOBBY →',
+                label: 'START GAME →',
                 bg: Colors.white,
                 onPressed: () => Navigator.pop(dialogContext),
               ),
@@ -4172,7 +4175,12 @@ class _OnlineLobbyPageState extends State<OnlineLobbyPage> {
     _openGame(id, isHost: false, myEmoji: _myEmoji);
   }
 
-  void _openGame(String id, {required bool isHost, required String myEmoji}) {
+  void _openGame(
+    String id, {
+    required bool isHost,
+    required String myEmoji,
+    String? roomCode,
+  }) {
     pushBrutal(
       context,
       OnlineGamePage(
@@ -4180,6 +4188,7 @@ class _OnlineLobbyPageState extends State<OnlineLobbyPage> {
         docId: id,
         isHost: isHost,
         myEmoji: myEmoji,
+        roomCode: roomCode,
       ),
     );
   }
@@ -4501,12 +4510,14 @@ class OnlineGamePage extends StatefulWidget {
   final String docId;
   final bool isHost;
   final String myEmoji;
+  final String? roomCode;
   const OnlineGamePage({
     super.key,
     required this.store,
     required this.docId,
     required this.isHost,
     required this.myEmoji,
+    this.roomCode,
   });
 
   @override
@@ -5018,6 +5029,60 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
                         DiamondBadge(diamonds: widget.store.diamonds),
                       ],
                     ),
+                    if (widget.roomCode != null) ...[
+                      const SizedBox(height: 12),
+                      BrutalCard(
+                        bg: kLavender,
+                        shadow: kShadowSm,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
+                        ),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                '🔒 ROOM ${widget.roomCode}',
+                                style: const TextStyle(
+                                  fontFamily: 'monospace',
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w900,
+                                  letterSpacing: 1,
+                                ),
+                              ),
+                            ),
+                            BrutalButton(
+                              label: 'COPY CODE',
+                              bg: kCanary,
+                              fontSize: 10,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 6,
+                              ),
+                              onPressed: () {
+                                Clipboard.setData(
+                                  ClipboardData(text: widget.roomCode!),
+                                );
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    backgroundColor: kMint,
+                                    content: Text(
+                                      'CODE COPIED ✓',
+                                      textAlign: TextAlign.center,
+                                      style: TextStyle(
+                                        fontFamily: 'monospace',
+                                        fontWeight: FontWeight.w900,
+                                        color: kBlack,
+                                      ),
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                     const SizedBox(height: 12),
                     _TurnStrip(
                       p1: widget.isHost ? widget.myEmoji : oppE,

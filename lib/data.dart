@@ -408,6 +408,10 @@ class GameStore extends ChangeNotifier {
 
   static const String _stateKey = 'ttt_state_v2';
 
+  // Track the signed-in account so progression can sync to/from the cloud.
+  String? _lastUid;
+  bool _syncingUid = false;
+
   GameStore(this.services) {
     for (final item in kCatalog) {
       if (item.price == 0) _unlocked.add(item.emoji);
@@ -416,8 +420,76 @@ class GameStore extends ChangeNotifier {
         .addAll(kBoardThemes.where((t) => t.price == 0).map((t) => t.id));
     _unlockedFrames
         .addAll(kBoardFrames.where((f) => f.price == 0).map((f) => f.id));
-    services.addListener(notifyListeners);
+    services.addListener(_onServicesChanged);
     _load();
+  }
+
+  void _onServicesChanged() {
+    final uid = services.user?.uid;
+    if (uid != _lastUid) {
+      _lastUid = uid;
+      if (uid != null) _adoptCloud();
+    }
+    notifyListeners();
+  }
+
+  /// Pulls the stored progression for the just-signed-in account and merges
+  /// it with anything already on this device (max for counters, union for
+  /// unlocks). If no cloud copy exists yet, this device becomes the baseline.
+  Future<void> _adoptCloud() async {
+    if (_syncingUid) return;
+    final uid = services.user?.uid;
+    if (uid == null) return;
+    _syncingUid = true;
+    try {
+      final data = await services.fetchCloudState();
+      if (uid != services.user?.uid) return;
+      if (data == null) {
+        await services.saveCloudState(_encode());
+        return;
+      }
+      var changed = false;
+
+      int better(String key, int current) {
+        final v = (data[key] as num?)?.toInt() ?? 0;
+        if (v > current) {
+          changed = true;
+          return v;
+        }
+        return current;
+      }
+
+      _diamonds = better('diamonds', _diamonds);
+      _totalGemsEarned = better('ge', _totalGemsEarned);
+      _bestDayStreak = better('bs', _bestDayStreak);
+      _maxWinStreak = better('ms', _maxWinStreak);
+      _onlineWins = better('ow', _onlineWins);
+      _playerGames = better('pg', _playerGames);
+      _playerWins = better('pw', _playerWins);
+      _playerDraws = better('pd', _playerDraws);
+
+      void union(String key, Set<String> into) {
+        final list = (data[key] as List?)?.cast<String>();
+        if (list == null) return;
+        final before = into.length;
+        into.addAll(list);
+        if (into.length != before) changed = true;
+      }
+
+      union('unlocked', _unlocked);
+      union('themes', _unlockedThemes);
+      union('frames', _unlockedFrames);
+      union('ach', _unlockedAchievements);
+      union('logins', _logins);
+
+      if (changed) {
+        _evaluateAchievements();
+        await _save();
+        notifyListeners();
+      }
+    } finally {
+      _syncingUid = false;
+    }
   }
 
   // ── Getters ───────────────────────────────────────────────────────────────
@@ -757,37 +829,50 @@ class GameStore extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// The full progression state, shared by local disk and cloud backups.
+  Map<String, dynamic> _encode() => {
+        'diamonds': _diamonds,
+        'unlocked': _unlocked.toList(),
+        'themes': _unlockedThemes.toList(),
+        'frames': _unlockedFrames.toList(),
+        'theme': _themeId,
+        'frame': _frameId,
+        'streak': winStreak,
+        'qd': _questDate,
+        'qw': questWins,
+        'qg': questGames,
+        'qs': _streakReachedToday,
+        'claimed': _claimedToday.toList(),
+        'bonus': _bonusDate,
+        'ge': _totalGemsEarned,
+        'logins': _logins.toList(),
+        'bs': _bestDayStreak,
+        'ms': _maxWinStreak,
+        'ow': _onlineWins,
+        'pg': _playerGames,
+        'pw': _playerWins,
+        'pd': _playerDraws,
+        'ach': _unlockedAchievements.toList(),
+        'banner': _bannerId,
+      };
+
   Future<void> _save() async {
+    await _saveLocal();
+    _pushCloud();
+  }
+
+  /// Keeps the signed-in account's progression backed up so logging in again
+  /// (or on another device) restores gems, unlocks and the bonus streak.
+  void _pushCloud() {
+    final uid = services.user?.uid;
+    if (uid == null || !services.online) return;
+    services.saveCloudState(_encode());
+  }
+
+  Future<void> _saveLocal() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(
-        _stateKey,
-        jsonEncode({
-          'diamonds': _diamonds,
-          'unlocked': _unlocked.toList(),
-          'themes': _unlockedThemes.toList(),
-          'frames': _unlockedFrames.toList(),
-          'theme': _themeId,
-          'frame': _frameId,
-          'streak': winStreak,
-          'qd': _questDate,
-          'qw': questWins,
-          'qg': questGames,
-          'qs': _streakReachedToday,
-          'claimed': _claimedToday.toList(),
-          'bonus': _bonusDate,
-          'ge': _totalGemsEarned,
-          'logins': _logins.toList(),
-          'bs': _bestDayStreak,
-          'ms': _maxWinStreak,
-          'ow': _onlineWins,
-          'pg': _playerGames,
-          'pw': _playerWins,
-          'pd': _playerDraws,
-          'ach': _unlockedAchievements.toList(),
-          'banner': _bannerId,
-        }),
-      );
+      await prefs.setString(_stateKey, jsonEncode(_encode()));
     } catch (_) {}
   }
 }
