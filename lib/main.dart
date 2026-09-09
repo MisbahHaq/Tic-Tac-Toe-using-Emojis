@@ -173,8 +173,6 @@ class _HomeContent extends StatelessWidget {
           ),
         const SizedBox(height: 16),
         _DailyQuestsCard(store: store),
-        const SizedBox(height: 16),
-        _SignInChip(store: store),
       ],
     );
   }
@@ -205,8 +203,10 @@ class _DailyQuestsCard extends StatelessWidget {
     return AnimatedBuilder(
       animation: store,
       builder: (context, _) {
+        final signedIn = store.user != null;
+        final bonusReady = store.canClaimDaily;
         final allDone =
-            !store.canClaimDaily && store.quests.every((q) => q.claimed);
+            !bonusReady && store.quests.every((q) => q.claimed);
         return BrutalCard(
           bg: Colors.white,
           shadow: kShadowSm,
@@ -236,9 +236,11 @@ class _DailyQuestsCard extends StatelessWidget {
                           children: [
                             Expanded(
                               child: Text(
-                                store.canClaimDaily
-                                    ? '🎁 DAILY BONUS READY'
-                                    : '🎁 DAILY BONUS CLAIMED',
+                                !bonusReady
+                                    ? '🎁 DAILY BONUS CLAIMED'
+                                    : (signedIn
+                                        ? '🎁 DAILY BONUS READY'
+                                        : '🔒 SIGN IN TO CLAIM DAILY BONUS'),
                                 style: const TextStyle(
                                   fontFamily: 'monospace',
                                   fontSize: 12,
@@ -248,19 +250,20 @@ class _DailyQuestsCard extends StatelessWidget {
                               ),
                             ),
                             BrutalButton(
-                              label:
-                                  store.canClaimDaily
+                              label: !bonusReady
+                                  ? '✓ DONE'
+                                  : (signedIn
                                       ? 'CLAIM +${store.todayBonus}💎'
-                                      : '✓ DONE',
-                              bg: store.canClaimDaily ? kCanary : Colors.white,
-                              enabled: store.canClaimDaily,
+                                      : 'LOG IN'),
+                              bg: bonusReady ? kCanary : Colors.white,
+                              enabled: bonusReady && signedIn,
                               fontSize: 11,
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 12,
                                 vertical: 8,
                               ),
                               onPressed:
-                                  store.canClaimDaily
+                                  bonusReady && signedIn
                                       ? () async {
                                         final got = await store.claimDaily();
                                         if (got != null && context.mounted) {
@@ -289,7 +292,12 @@ class _DailyQuestsCard extends StatelessWidget {
                         ),
                         const SizedBox(height: 8),
                         for (final q in store.quests) ...[
-                          _QuestRow(store: store, quest: q, onToast: _toast),
+                          _QuestRow(
+                            store: store,
+                            quest: q,
+                            signedIn: signedIn,
+                            onToast: _toast,
+                          ),
                           const SizedBox(height: 8),
                         ],
                       ],
@@ -304,10 +312,12 @@ class _DailyQuestsCard extends StatelessWidget {
 class _QuestRow extends StatelessWidget {
   final GameStore store;
   final QuestStatus quest;
+  final bool signedIn;
   final void Function(BuildContext, String, Color) onToast;
   const _QuestRow({
     required this.store,
     required this.quest,
+    required this.signedIn,
     required this.onToast,
   });
 
@@ -352,16 +362,15 @@ class _QuestRow extends StatelessWidget {
           const Text('✓', style: TextStyle(fontSize: 18))
         else
           BrutalButton(
-            label:
-                quest.done
-                    ? '+${quest.reward}💎'
-                    : '${quest.current}/${quest.target}',
+            label: quest.done
+                ? (signedIn ? '+${quest.reward}💎' : 'LOG IN')
+                : '${quest.current}/${quest.target}',
             bg: quest.done ? kMint : Colors.white,
-            enabled: quest.done,
+            enabled: signedIn && quest.done,
             fontSize: 11,
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             onPressed:
-                quest.done
+                signedIn && quest.done
                     ? () async {
                       final got = await store.claimQuest(quest.id);
                       if (got > 0 && context.mounted) {
@@ -419,61 +428,6 @@ class _ModeCard extends StatelessWidget {
                 fontWeight: FontWeight.w900,
                 letterSpacing: 1.5,
                 color: kBlack,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _SignInChip extends StatelessWidget {
-  final GameStore store;
-  const _SignInChip({required this.store});
-
-  @override
-  Widget build(BuildContext context) {
-    final ready = store.firebaseReady;
-    final user = store.user;
-    return BrutalCard(
-      bg: ready ? kSky : const Color(0xFFE5E5E5),
-      shadow: kShadowSm,
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-      child: GestureDetector(
-        onTap:
-            ready
-                ? () => pushBrutal(
-                  context,
-                  user != null
-                      ? ProfilePage(store: store)
-                      : SignInPage(store: store),
-                )
-                : null,
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(
-              user != null ? '⭕' : '👤',
-              style: const TextStyle(fontSize: 18),
-            ),
-            const SizedBox(width: 8),
-            Flexible(
-              child: Text(
-                user != null
-                    ? 'SIGNED IN: ${user.name.toUpperCase()}'
-                    : (ready
-                        ? 'SIGN IN FOR LEADERBOARD'
-                        : 'SIGN-IN: FIREBASE NOT SET UP'),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontFamily: 'monospace',
-                  fontSize: 11,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: 1,
-                  color: kBlack,
-                ),
               ),
             ),
           ],
@@ -2627,6 +2581,54 @@ class _ProfilePageState extends State<ProfilePage> {
                           ],
                         ),
                       ),
+                      if (store.user == null) ...[
+                        const SizedBox(height: 14),
+                        BrutalCard(
+                          bg: kCanarySoft,
+                          shadow: kShadowSm,
+                          child: Column(
+                            children: [
+                              const Text(
+                                'SIGN IN TO CLAIM 💎 BONUSES & CHASE THE '
+                                'LEADERBOARD',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  fontFamily: 'monospace',
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
+                              const SizedBox(height: 10),
+                              BrutalButton(
+                                label: 'SIGN IN',
+                                bg: kCanary,
+                                fontSize: 14,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 24,
+                                  vertical: 12,
+                                ),
+                                onPressed: () =>
+                                    pushBrutal(context, SignInPage(store: store)),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ] else ...[
+                        const SizedBox(height: 10),
+                        BrutalButton(
+                          label: 'SIGN OUT',
+                          bg: Colors.white,
+                          fontSize: 12,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 10,
+                          ),
+                          onPressed: () async {
+                            await store.services.signOut();
+                            if (context.mounted) Navigator.pop(context);
+                          },
+                        ),
+                      ],
                       const SizedBox(height: 16),
                       _ProfileStatsCard(store: store),
                       const SizedBox(height: 18),
